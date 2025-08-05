@@ -20,6 +20,9 @@ import { Setting } from "@/components/icons/Setting";
 export default function PlayWithAI() {
   const router = useRouter();
   const [selectedLevel, setSelectedLevel] = useState("Intermediate");
+  const [selectedColor, setSelectedColor] = useState<"white" | "black">(
+    "white"
+  ); // State untuk warna
   const [gameStarted, setGameStarted] = useState(false);
   const [dropdownVisible, setDropdownVisible] = useState(false);
 
@@ -27,6 +30,9 @@ export default function PlayWithAI() {
 
   const handleStart = () => {
     setGameStarted(true);
+    console.log(
+      `Starting game with difficulty: ${selectedLevel}, playing as: ${selectedColor}`
+    );
     setTimeout(() => {
       setGameStarted(false);
     }, 2000);
@@ -35,6 +41,10 @@ export default function PlayWithAI() {
   const handleLevelSelect = (level: string) => {
     setSelectedLevel(level);
     setDropdownVisible(false);
+  };
+
+  const handleColorSelect = (color: "white" | "black") => {
+    setSelectedColor(color);
   };
 
   if (gameStarted) {
@@ -50,7 +60,8 @@ export default function PlayWithAI() {
           </Text>
           <Text className="text-gray-600 text-center text-base leading-relaxed">
             Preparing your {selectedLevel.toLowerCase()} level chess game with
-            AI opponent
+            AI opponent. You are playing as{" "}
+            {selectedColor === "white" ? "White" : "Black"} pieces.
           </Text>
         </View>
       </SafeAreaView>
@@ -99,7 +110,8 @@ export default function PlayWithAI() {
       ></ScrollView>
 
       <View className="px-6 pb-6 bg-white border-t border-gray-100">
-        <View className="flex-row items-center justify-center mb-4 pt-4 ">
+        <View className="flex-row items-center justify-center mb-4 pt-4">
+          {/* Difficulty Dropdown */}
           <TouchableOpacity
             onPress={() => setDropdownVisible(true)}
             className="bg-white rounded-full w-56 justify-center border border-gray-300 px-4 py-3 flex-row items-center mr-4 shadow-sm"
@@ -110,11 +122,26 @@ export default function PlayWithAI() {
             <Text className="text-gray-400 text-xs">▼</Text>
           </TouchableOpacity>
 
+          {/* Color Selection */}
           <View className="flex-row space-x-2 gap-4">
-            <TouchableOpacity className="w-12 h-12 bg-indigo-500 rounded-full justify-center items-center shadow-sm">
-              <WKing height={30} width={30} />
+            <TouchableOpacity
+              onPress={() => handleColorSelect("white")}
+              className={`w-12 h-12 ${
+                selectedColor === "white"
+                  ? "bg-indigo-500 border-0 "
+                  : "bg-gray-200 border-2 border-transparent"
+              } rounded-full justify-center items-center shadow-sm`}
+            >
+              <WKing height={30} width={30} color="#ffff" />
             </TouchableOpacity>
-            <TouchableOpacity className="w-12 h-12 bg-gray-200 rounded-full justify-center items-center">
+            <TouchableOpacity
+              onPress={() => handleColorSelect("black")}
+              className={`w-12 h-12 ${
+                selectedColor === "black"
+                  ? "bg-indigo-500 border-0"
+                  : "bg-gray-200 border-2 border-transparent"
+              } rounded-full justify-center items-center shadow-sm`}
+            >
               <BKing height={30} width={30} />
             </TouchableOpacity>
           </View>
@@ -125,7 +152,7 @@ export default function PlayWithAI() {
           className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
         >
           <Text className="text-white text-lg font-semibold text-center">
-            Start
+            Start Game
           </Text>
         </TouchableOpacity>
       </View>
@@ -167,6 +194,9 @@ export default function PlayWithAI() {
                   >
                     {item}
                   </Text>
+                  {selectedLevel === item && (
+                    <Text className="text-indigo-600 text-lg">✓</Text>
+                  )}
                 </View>
               </TouchableOpacity>
             ))}

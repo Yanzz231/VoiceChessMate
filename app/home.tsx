@@ -34,6 +34,16 @@ export default function Home() {
   const lastBackPress = useRef<number>(0);
   const forceStopRef = useRef<boolean>(false);
 
+  const Vibrate = async () => {
+    try {
+      let notificationType = Haptics.NotificationFeedbackType.Success;
+
+      await Haptics.notificationAsync(notificationType);
+    } catch (error) {
+      console.error(`failed:`, error);
+    }
+  };
+
   const {
     isRecording,
     isTranscribing,
@@ -68,7 +78,7 @@ export default function Home() {
       if (isUserHolding.current) {
         try {
           recordingStartTime.current = Date.now();
-
+          Vibrate();
           await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           await startRecording();
         } catch (error) {
@@ -104,18 +114,18 @@ export default function Home() {
   useEffect(() => {
     const showExitConfirmation = () => {
       Alert.alert(
-        "Keluar dari ChessMate",
-        "Apakah Anda yakin ingin menutup aplikasi ChessMate?",
+        "Exit ChessMate",
+        "Are you sure you want to close the ChessMate app?",
         [
           {
-            text: "Tetap di Sini",
+            text: "Stay Here",
             style: "cancel",
             onPress: () => {
               lastBackPress.current = 0;
             },
           },
           {
-            text: "Ya, Keluar",
+            text: "Yes, Exit",
             style: "destructive",
             onPress: () => {
               BackHandler.exitApp();

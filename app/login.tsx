@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,18 +25,18 @@ const LoginScreen = () => {
   useEffect(() => {
     const showExitConfirmation = () => {
       Alert.alert(
-        "Keluar dari ChessMate",
-        "Apakah Anda yakin ingin menutup aplikasi ChessMate?",
+        "Exit ChessMate",
+        "Are you sure you want to close the ChessMate app?",
         [
           {
-            text: "Tetap di Sini",
+            text: "Stay Here",
             style: "cancel",
             onPress: () => {
               lastBackPress.current = 0;
             },
           },
           {
-            text: "Ya, Keluar",
+            text: "Yes, Exit",
             style: "destructive",
             onPress: () => {
               BackHandler.exitApp();
