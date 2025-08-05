@@ -1,7 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Session } from "@supabase/supabase-js";
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
 
 export const useAuth = () => {
@@ -42,17 +41,9 @@ export const useAuth = () => {
       if (session) {
         setSession(session);
         await AsyncStorage.setItem("supabase_session", JSON.stringify(session));
-
-        if (event === "SIGNED_IN") {
-          router.replace("/home");
-        }
       } else {
         setSession(null);
         await AsyncStorage.removeItem("supabase_session");
-
-        if (event === "SIGNED_OUT") {
-          router.replace("/login");
-        }
       }
 
       if (event === "INITIAL_SESSION") {
@@ -70,7 +61,6 @@ export const useAuth = () => {
       await supabase.auth.signOut();
       await AsyncStorage.removeItem("supabase_session");
       setSession(null);
-      router.replace("/login");
     } catch (error) {
       // Silent fail
     }

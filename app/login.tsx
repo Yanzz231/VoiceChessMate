@@ -3,10 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   SafeAreaView,
   StatusBar,
   Text,
@@ -19,6 +20,57 @@ import { GoogleSvg } from "@/components/icons/Google";
 
 const LoginScreen = () => {
   const [loading, setLoading] = useState(false);
+  const lastBackPress = useRef<number>(0);
+
+  useEffect(() => {
+    const showExitConfirmation = () => {
+      Alert.alert(
+        "Keluar dari ChessMate",
+        "Apakah Anda yakin ingin menutup aplikasi ChessMate?",
+        [
+          {
+            text: "Tetap di Sini",
+            style: "cancel",
+            onPress: () => {
+              lastBackPress.current = 0;
+            },
+          },
+          {
+            text: "Ya, Keluar",
+            style: "destructive",
+            onPress: () => {
+              BackHandler.exitApp();
+            },
+          },
+        ],
+        {
+          cancelable: true,
+          onDismiss: () => {
+            lastBackPress.current = 0;
+          },
+        }
+      );
+    };
+
+    const backAction = () => {
+      const currentTime = Date.now();
+
+      if (currentTime - lastBackPress.current < 2000) {
+        return true;
+      }
+
+      lastBackPress.current = currentTime;
+      showExitConfirmation();
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, []);
 
   useEffect(() => {
     const handleDeepLink = async (event: { url: string }) => {
@@ -41,7 +93,7 @@ const LoginScreen = () => {
             });
 
             if (error) {
-              Alert.alert("Sign In Failed", error.message);
+              Alert.alert("Masuk Gagal", error.message);
               setLoading(false);
             } else if (data?.session) {
               await AsyncStorage.setItem(
@@ -53,7 +105,10 @@ const LoginScreen = () => {
               setLoading(false);
             }
           } else {
-            Alert.alert("Authentication Error", "Invalid callback parameters");
+            Alert.alert(
+              "Kesalahan Autentikasi",
+              "Parameter callback tidak valid"
+            );
             setLoading(false);
           }
         } else {
@@ -62,7 +117,7 @@ const LoginScreen = () => {
           );
 
           if (error) {
-            Alert.alert("Sign In Failed", error.message);
+            Alert.alert("Masuk Gagal", error.message);
             setLoading(false);
           } else if (data?.session) {
             await AsyncStorage.setItem(
@@ -76,8 +131,8 @@ const LoginScreen = () => {
         }
       } catch (err) {
         Alert.alert(
-          "Authentication Error",
-          "Something went wrong during sign in"
+          "Kesalahan Autentikasi",
+          "Terjadi kesalahan saat proses masuk"
         );
         setLoading(false);
       }
@@ -120,13 +175,13 @@ const LoginScreen = () => {
       });
 
       if (error) {
-        Alert.alert("Sign In Failed", error.message);
+        Alert.alert("Masuk Gagal", error.message);
         setLoading(false);
       } else if (data?.url) {
         await Linking.openURL(data.url);
       }
     } catch (err) {
-      Alert.alert("Authentication Error", "Failed to initiate sign in");
+      Alert.alert("Kesalahan Autentikasi", "Gagal memulai proses masuk");
       setLoading(false);
     }
   };
@@ -154,14 +209,15 @@ const LoginScreen = () => {
               </View>
 
               <Text className="text-lg font-semibold text-gray-900 leading-7 mb-4">
-                Feel every move - play chess effortlessly, only using your voice
+                Rasakan setiap langkah - mainkan catur dengan mudah, hanya
+                menggunakan suara Anda
               </Text>
 
               <Text className="text-sm text-gray-600 leading-6 mb-9">
-                No screens, no distraction, speaking your moves, and hearing the
-                game unfold. ChessMate is designed to be intuitive and
-                empowering, making chess accessible in a way that feels
-                immersive for all
+                Tanpa layar, tanpa gangguan, ucapkan langkah Anda, dan dengarkan
+                permainan berlangsung. ChessMate dirancang intuitif dan
+                memberdayakan, membuat catur dapat diakses dengan cara yang
+                terasa imersif untuk semua
               </Text>
 
               <TouchableOpacity
@@ -182,7 +238,7 @@ const LoginScreen = () => {
                     <GoogleSvg height={20} width={20} />
                   )}
                   <Text className="text-white text-base font-semibold">
-                    {loading ? "Signing in..." : "Sign in with Google"}
+                    {loading ? "Sedang masuk..." : "Masuk dengan Google"}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>

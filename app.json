@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app needs access to the microphone for voice recognition features.",
+        "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to convert your speech to text."
+      }
     },
     "android": {
       "package": "com.andrianpratama05.samsungvoice",
@@ -18,7 +22,15 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE",
+        "INTERNET",
+        "MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -28,13 +40,22 @@
     "plugins": [
       "@react-native-firebase/app",
       "@react-native-google-signin/google-signin",
-      "expo-router"
+      "expo-router",
+      [
+        "@react-native-voice/voice",
+        {
+          "microphonePermission": "This app needs access to the microphone for voice recognition.",
+          "speechRecognitionPermission": "This app uses speech recognition to convert speech to text."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
+      "router": {
+        "origin": false
+      },
       "eas": {
         "projectId": "cdf9bddc-15ba-4196-90d1-f151081f04bd"
       }
