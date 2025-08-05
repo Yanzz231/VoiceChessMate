@@ -6,12 +6,12 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   BackHandler,
+  Image,
   SafeAreaView,
   StatusBar,
   Text,
   TouchableOpacity,
   View,
-  Image,
 } from "react-native";
 
 import { Ai } from "@/components/icons/Ai";
