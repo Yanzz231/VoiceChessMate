@@ -4,8 +4,8 @@ import Svg, { G, Path } from "react-native-svg";
 export const WKnight = ({
   width = 192,
   height = 192,
-  color = "#000000",
-  fillColor = "#e6e6e6",
+  color = "#e6e6e6",
+  fillColor = "#0000",
 }) => {
   return (
     <Svg viewBox="0 0 309.81 346.95" width={width} height={height}>

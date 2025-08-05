@@ -2,6 +2,7 @@ import { useAssemblyAI } from "@/hooks/useAssemblyAI";
 import { useAuth } from "@/hooks/useAuth";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -21,6 +22,8 @@ import { Scan } from "@/components/icons/Scan";
 import { Setting } from "@/components/icons/Setting";
 
 export default function Home() {
+  const router = useRouter();
+
   const { user, signOut } = useAuth();
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordingStartTime = useRef<number>(0);
@@ -220,7 +223,7 @@ export default function Home() {
 
           <View className="flex-1 bg-gray-50 rounded-t-[32px] px-6 pt-8">
             <TouchableOpacity
-              onPress={() => {}}
+              onPress={() => router.push("/play")}
               className="bg-white rounded-2xl p-5 mb-4 shadow-sm border border-gray-100"
             >
               <View className="flex-row items-center">
