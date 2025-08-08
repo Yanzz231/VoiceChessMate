@@ -1,5 +1,6 @@
 import { useAssemblyAI } from "@/hooks/useAssemblyAI";
 import { useAuth } from "@/hooks/useAuth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -196,6 +197,25 @@ export default function Home() {
     );
   };
 
+  const STORAGE_KEYS = {
+    DIFFICULTY: "chess_difficulty",
+    COLOR: "chess_color",
+    GAME_SESSION: "chess_game_session",
+    GAME_FEN: "chess_game_fen",
+  };
+  const clearGameSession = async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.DIFFICULTY,
+        STORAGE_KEYS.COLOR,
+        STORAGE_KEYS.GAME_SESSION,
+        STORAGE_KEYS.GAME_FEN,
+      ]);
+    } catch (error) {
+      console.error("Error clearing game session:", error);
+    }
+  };
+
   return (
     <View
       className="flex-1"
@@ -233,7 +253,10 @@ export default function Home() {
 
           <View className="flex-1 bg-gray-50 rounded-t-[32px] px-6 pt-8">
             <TouchableOpacity
-              onPress={() => router.push("/play")}
+              onPress={() => {
+                router.push("/play");
+                clearGameSession();
+              }}
               className="bg-white rounded-2xl p-5 mb-4 shadow-sm border border-gray-100"
             >
               <View className="flex-row items-center">

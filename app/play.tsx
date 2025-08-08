@@ -1,6 +1,9 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -17,25 +20,102 @@ import { WKing } from "@/components/chess/white/WKing";
 import { Face } from "@/components/Face";
 import { Setting } from "@/components/icons/Setting";
 
+// Chess Game Component
+import ChessGame from "@/components/ChessGame";
+
+const STORAGE_KEYS = {
+  DIFFICULTY: "chess_difficulty",
+  COLOR: "chess_color",
+  GAME_SESSION: "chess_game_session",
+  GAME_FEN: "chess_game_fen",
+};
+
 export default function PlayWithAI() {
   const router = useRouter();
   const [selectedLevel, setSelectedLevel] = useState("Intermediate");
   const [selectedColor, setSelectedColor] = useState<"white" | "black">(
     "white"
-  ); // State untuk warna
+  );
   const [gameStarted, setGameStarted] = useState(false);
   const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const difficultyLevels = ["Beginner", "Intermediate", "Advanced", "Expert"];
 
-  const handleStart = () => {
-    setGameStarted(true);
-    console.log(
-      `Starting game with difficulty: ${selectedLevel}, playing as: ${selectedColor}`
-    );
-    setTimeout(() => {
-      setGameStarted(false);
-    }, 2000);
+  // Load saved settings on component mount
+  useEffect(() => {
+    loadSavedSettings();
+    checkGameSession();
+  }, []);
+
+  const loadSavedSettings = async () => {
+    try {
+      const savedDifficulty = await AsyncStorage.getItem(
+        STORAGE_KEYS.DIFFICULTY
+      );
+      const savedColor = await AsyncStorage.getItem(STORAGE_KEYS.COLOR);
+
+      if (savedDifficulty) {
+        setSelectedLevel(savedDifficulty);
+      }
+      if (savedColor) {
+        setSelectedColor(savedColor as "white" | "black");
+      }
+    } catch (error) {
+      console.error("Error loading saved settings:", error);
+    }
+  };
+
+  const checkGameSession = async () => {
+    try {
+      const gameSession = await AsyncStorage.getItem(STORAGE_KEYS.GAME_SESSION);
+      if (gameSession === "active") {
+        setGameStarted(true);
+      }
+    } catch (error) {
+      console.error("Error checking game session:", error);
+    }
+  };
+
+  const saveGameSettings = async () => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.DIFFICULTY, selectedLevel);
+      await AsyncStorage.setItem(STORAGE_KEYS.COLOR, selectedColor);
+      await AsyncStorage.setItem(STORAGE_KEYS.GAME_SESSION, "active");
+    } catch (error) {
+      console.error("Error saving game settings:", error);
+    }
+  };
+
+  const clearGameSession = async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.DIFFICULTY,
+        STORAGE_KEYS.COLOR,
+        STORAGE_KEYS.GAME_SESSION,
+        STORAGE_KEYS.GAME_FEN,
+      ]);
+    } catch (error) {
+      console.error("Error clearing game session:", error);
+    }
+  };
+
+  const handleStart = async () => {
+    setLoading(true);
+    try {
+      await saveGameSettings();
+      console.log(
+        `Starting game with difficulty: ${selectedLevel}, playing as: ${selectedColor}`
+      );
+
+      setTimeout(() => {
+        setGameStarted(true);
+        setLoading(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Error starting game:", error);
+      setLoading(false);
+    }
   };
 
   const handleLevelSelect = (level: string) => {
@@ -47,25 +127,67 @@ export default function PlayWithAI() {
     setSelectedColor(color);
   };
 
-  if (gameStarted) {
+  const handleBackPress = () => {
+    if (gameStarted) {
+      Alert.alert(
+        "Quit Game",
+        "Are you sure you want to quit? Your game progress will be lost.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Quit",
+            style: "destructive",
+            onPress: async () => {
+              await clearGameSession();
+              setGameStarted(false);
+              router.back();
+            },
+          },
+        ]
+      );
+    } else {
+      router.back();
+    }
+  };
+
+  const handleGameQuit = async () => {
+    Alert.alert(
+      "Quit Game",
+      "Are you sure you want to quit? Your game progress will be lost.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Quit",
+          style: "destructive",
+          onPress: async () => {
+            await clearGameSession();
+            setGameStarted(false);
+          },
+        },
+      ]
+    );
+  };
+
+  if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-gray-100">
         <StatusBar barStyle="dark-content" backgroundColor="#f3f4f6" />
-        <View className="flex-1 justify-center items-center px-6">
-          <View className="w-20 h-20 bg-indigo-500 rounded-full justify-center items-center mb-6">
-            <Text className="text-white text-3xl">🤖</Text>
-          </View>
-          <Text className="text-2xl font-bold text-gray-800 mb-4 text-center">
-            Game Starting...
-          </Text>
-          <Text className="text-gray-600 text-center text-base leading-relaxed">
-            Preparing your {selectedLevel.toLowerCase()} level chess game with
-            AI opponent. You are playing as{" "}
-            {selectedColor === "white" ? "White" : "Black"} pieces.
-          </Text>
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#6366F1" />
+          <Text className="text-lg text-gray-700 mt-4">Loading...</Text>
         </View>
       </SafeAreaView>
     );
+  }
+
+  if (gameStarted) {
+    return <ChessGame onQuit={handleGameQuit} onBack={handleBackPress} />;
   }
 
   return (
@@ -76,7 +198,7 @@ export default function PlayWithAI() {
         {/* NAVBAR */}
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBackPress}
             className="w-10 h-10 justify-center items-center"
           >
             <BackIcon height={30} width={30} />
@@ -150,9 +272,10 @@ export default function PlayWithAI() {
         <TouchableOpacity
           onPress={handleStart}
           className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
+          disabled={loading}
         >
           <Text className="text-white text-lg font-semibold text-center">
-            Start Game
+            {loading ? "Starting..." : "Start Game"}
           </Text>
         </TouchableOpacity>
       </View>
