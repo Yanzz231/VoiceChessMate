@@ -23,12 +23,8 @@ import { Setting } from "@/components/icons/Setting";
 // Chess Game Component
 import ChessGame from "@/components/ChessGame";
 
-const STORAGE_KEYS = {
-  DIFFICULTY: "chess_difficulty",
-  COLOR: "chess_color",
-  GAME_SESSION: "chess_game_session",
-  GAME_FEN: "chess_game_fen",
-};
+// Constants
+import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
 
 export default function PlayWithAI() {
   const router = useRouter();
@@ -51,9 +47,9 @@ export default function PlayWithAI() {
   const loadSavedSettings = async () => {
     try {
       const savedDifficulty = await AsyncStorage.getItem(
-        STORAGE_KEYS.DIFFICULTY
+        CHESS_STORAGE_KEYS.DIFFICULTY
       );
-      const savedColor = await AsyncStorage.getItem(STORAGE_KEYS.COLOR);
+      const savedColor = await AsyncStorage.getItem(CHESS_STORAGE_KEYS.COLOR);
 
       if (savedDifficulty) {
         setSelectedLevel(savedDifficulty);
@@ -68,7 +64,9 @@ export default function PlayWithAI() {
 
   const checkGameSession = async () => {
     try {
-      const gameSession = await AsyncStorage.getItem(STORAGE_KEYS.GAME_SESSION);
+      const gameSession = await AsyncStorage.getItem(
+        CHESS_STORAGE_KEYS.GAME_SESSION
+      );
       if (gameSession === "active") {
         setGameStarted(true);
       }
@@ -79,9 +77,9 @@ export default function PlayWithAI() {
 
   const saveGameSettings = async () => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.DIFFICULTY, selectedLevel);
-      await AsyncStorage.setItem(STORAGE_KEYS.COLOR, selectedColor);
-      await AsyncStorage.setItem(STORAGE_KEYS.GAME_SESSION, "active");
+      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.DIFFICULTY, selectedLevel);
+      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.COLOR, selectedColor);
+      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.GAME_SESSION, "active");
     } catch (error) {
       console.error("Error saving game settings:", error);
     }
@@ -90,10 +88,12 @@ export default function PlayWithAI() {
   const clearGameSession = async () => {
     try {
       await AsyncStorage.multiRemove([
-        STORAGE_KEYS.DIFFICULTY,
-        STORAGE_KEYS.COLOR,
-        STORAGE_KEYS.GAME_SESSION,
-        STORAGE_KEYS.GAME_FEN,
+        CHESS_STORAGE_KEYS.GAME_STATES,
+        CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX,
+        CHESS_STORAGE_KEYS.GAME_SESSION,
+        CHESS_STORAGE_KEYS.DIFFICULTY,
+        CHESS_STORAGE_KEYS.COLOR,
+        CHESS_STORAGE_KEYS.GAME_FEN,
       ]);
     } catch (error) {
       console.error("Error clearing game session:", error);

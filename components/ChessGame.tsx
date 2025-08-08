@@ -19,6 +19,9 @@ import { Mic } from "./icons/Mic";
 import { OptionIcon } from "./icons/OptionIcon";
 import { UndoIcon } from "./icons/UndoIcon";
 
+// Constants
+import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
+
 interface ChessGameProps {
   onQuit: () => void;
   onBack: () => void;
@@ -29,11 +32,6 @@ interface GameState {
   moveHistory: string[];
   timestamp: number;
 }
-
-const STORAGE_KEYS = {
-  GAME_STATES: "chess_game_states",
-  CURRENT_STATE_INDEX: "chess_current_state_index",
-};
 
 const INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -59,9 +57,11 @@ export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
 
   const loadGameState = async () => {
     try {
-      const savedStates = await AsyncStorage.getItem(STORAGE_KEYS.GAME_STATES);
+      const savedStates = await AsyncStorage.getItem(
+        CHESS_STORAGE_KEYS.GAME_STATES
+      );
       const savedIndex = await AsyncStorage.getItem(
-        STORAGE_KEYS.CURRENT_STATE_INDEX
+        CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX
       );
 
       if (savedStates && savedIndex) {
@@ -85,16 +85,41 @@ export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
   const saveGameState = async () => {
     try {
       await AsyncStorage.setItem(
-        STORAGE_KEYS.GAME_STATES,
+        CHESS_STORAGE_KEYS.GAME_STATES,
         JSON.stringify(gameStates)
       );
       await AsyncStorage.setItem(
-        STORAGE_KEYS.CURRENT_STATE_INDEX,
+        CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX,
         currentStateIndex.toString()
       );
     } catch (error) {
       console.error("Error saving game state:", error);
     }
+  };
+
+  const clearAllGameData = async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        CHESS_STORAGE_KEYS.GAME_STATES,
+        CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX,
+        CHESS_STORAGE_KEYS.GAME_SESSION,
+        CHESS_STORAGE_KEYS.DIFFICULTY,
+        CHESS_STORAGE_KEYS.COLOR,
+        CHESS_STORAGE_KEYS.GAME_FEN,
+      ]);
+    } catch (error) {
+      console.error("Error clearing all game data:", error);
+    }
+  };
+
+  const resetGameToInitialState = () => {
+    setFen(INITIAL_FEN);
+    setMoveHistory([]);
+    setGameStates([
+      { fen: INITIAL_FEN, moveHistory: [], timestamp: Date.now() },
+    ]);
+    setCurrentStateIndex(0);
+    setGameStatus("playing");
   };
 
   const addGameState = (newFen: string, newMoveHistory: string[]) => {
@@ -175,7 +200,7 @@ export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
         },
         {
           text: "Quit",
-          onPress: onQuit,
+          onPress: handleGameQuit,
         },
       ]);
     }, 1000);
@@ -183,22 +208,8 @@ export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
 
   const handleNewGame = async () => {
     try {
-      const initialState: GameState = {
-        fen: INITIAL_FEN,
-        moveHistory: [],
-        timestamp: Date.now(),
-      };
-
-      setFen(INITIAL_FEN);
-      setMoveHistory([]);
-      setGameStates([initialState]);
-      setCurrentStateIndex(0);
-      setGameStatus("playing");
-
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.GAME_STATES,
-        STORAGE_KEYS.CURRENT_STATE_INDEX,
-      ]);
+      await clearAllGameData();
+      resetGameToInitialState();
 
       if (chessboardRef.current) {
         chessboardRef.current.resetBoard(INITIAL_FEN);
@@ -206,6 +217,28 @@ export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
     } catch (error) {
       console.error("Error starting new game:", error);
     }
+  };
+
+  const handleGameQuit = async () => {
+    Alert.alert(
+      "Quit Game",
+      "Are you sure you want to quit? Your game progress will be lost.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Quit",
+          style: "destructive",
+          onPress: async () => {
+            await clearAllGameData();
+            resetGameToInitialState();
+            onQuit();
+          },
+        },
+      ]
+    );
   };
 
   const handleUndo = () => {
@@ -237,6 +270,7 @@ export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
   const handleOption = () => {
     Alert.alert("Options", "Game options and settings", [
       { text: "New Game", onPress: handleNewGame },
+      { text: "Quit Game", onPress: handleGameQuit, style: "destructive" },
       { text: "Cancel", style: "cancel" },
     ]);
   };
@@ -269,7 +303,7 @@ export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
               </Text>
             </View>
             <TouchableOpacity
-              onPress={onQuit}
+              onPress={handleGameQuit}
               className="w-10 h-10 justify-center items-center"
             >
               <Setting height={30} width={30} color="#000" />
@@ -314,7 +348,10 @@ export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
               <Text className="text-sm font-medium text-gray-600">Option</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={onQuit} className="items-center flex-1">
+            <TouchableOpacity
+              onPress={handleGameQuit}
+              className="items-center flex-1"
+            >
               <View className="w-12 h-12 items-center justify-center mb-2">
                 <FlagIcon width={30} height={30} />
               </View>
