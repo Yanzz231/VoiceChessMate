@@ -19,12 +19,12 @@ import { Mic } from "./icons/Mic";
 import { OptionIcon } from "./icons/OptionIcon";
 import { UndoIcon } from "./icons/UndoIcon";
 
-// Constants
 import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
 
 interface ChessGameProps {
   onQuit: () => void;
   onBack: () => void;
+  playerColor: "white" | "black";
 }
 
 interface GameState {
@@ -33,9 +33,19 @@ interface GameState {
   timestamp: number;
 }
 
-const INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const WHITE_INITIAL_FEN =
+  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const BLACK_INITIAL_FEN =
+  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1";
 
-export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
+export default function ChessGame({
+  onQuit,
+  onBack,
+  playerColor,
+}: ChessGameProps) {
+  const INITIAL_FEN =
+    playerColor === "white" ? WHITE_INITIAL_FEN : BLACK_INITIAL_FEN;
+
   const [fen, setFen] = useState(INITIAL_FEN);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [gameStates, setGameStates] = useState<GameState[]>([
@@ -277,9 +287,6 @@ export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
 
   const canUndo = currentStateIndex > 0;
   const currentPlayer = fen.split(" ")[1] === "w" ? "White" : "Black";
-  const moveCount = Math.ceil((moveHistory?.length || 0) / 2);
-  const lastMove =
-    moveHistory.length > 0 ? moveHistory[moveHistory.length - 1] : null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -326,12 +333,20 @@ export default function ChessGame({ onQuit, onBack }: ChessGameProps) {
         </View>
 
         <View className="flex-1 justify-center items-center px-4">
-          <View className="bg-white rounded-lg shadow-lg">
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            className="bg-white rounded-lg shadow-lg z-50 "
+          >
             <Chessboard
               ref={chessboardRef}
               fen={fen}
               onMove={handleMove}
               gestureEnabled={gameStatus === "playing"}
+              playerPerspective={playerColor}
             />
           </View>
         </View>

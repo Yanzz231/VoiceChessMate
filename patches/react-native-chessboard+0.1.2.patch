@@ -1,0 +1,264 @@
+diff --git a/node_modules/react-native-chessboard/lib/typescript/context/props-context/index.d.ts b/node_modules/react-native-chessboard/lib/typescript/context/props-context/index.d.ts
+index 42e9bea..1b6a95a 100644
+--- a/node_modules/react-native-chessboard/lib/typescript/context/props-context/index.d.ts
++++ b/node_modules/react-native-chessboard/lib/typescript/context/props-context/index.d.ts
+@@ -1,13 +1,15 @@
+ import type { Move } from 'chess.js';
+ import React from 'react';
+-import type { PieceType } from '../../types';
+ import type { ChessboardState } from '../../helpers/get-chessboard-state';
++import type { PieceType } from '../../types';
++
+ declare type ChessMoveInfo = {
+     move: Move;
+     state: ChessboardState & {
+         in_promotion: boolean;
+     };
+ };
++
+ declare type ChessboardColorsType = {
+     white: string;
+     black: string;
+@@ -15,9 +17,11 @@ declare type ChessboardColorsType = {
+     checkmateHighlight?: string;
+     promotionPieceButton?: string;
+ };
++
+ declare type ChessboardDurationsType = {
+     move?: number;
+ };
++
+ declare type ChessboardProps = {
+     /**
+      * Enables gestures for chess pieces.
+@@ -39,6 +43,10 @@ declare type ChessboardProps = {
+      * Indicates the chessboard width and height.
+      */
+     boardSize?: number;
++    /**
++     * NEW: Player perspective - when 'black', swaps piece colors visually
++     */
++    playerPerspective?: 'white' | 'black';
+     /**
+      *
+      * It gives the possibility to customise the chessboard pieces.
+@@ -59,13 +67,16 @@ declare type ChessboardProps = {
+      */
+     durations?: ChessboardDurationsType;
+ };
+-declare type ChessboardContextType = ChessboardProps & Required<Pick<ChessboardProps, 'gestureEnabled' | 'withLetters' | 'withNumbers' | 'boardSize'>> & {
++
++declare const ChessboardPropsContextProvider: React.FC<React.PropsWithChildren<ChessboardProps>>;
++declare const ChessboardPropsContext: React.Context<ChessboardProps & Required<Pick<ChessboardProps, 'gestureEnabled' | 'withLetters' | 'withNumbers' | 'boardSize'>> & {
+     pieceSize: number;
++    playerPerspective: 'white' | 'black';
+ } & {
+     colors: Required<ChessboardColorsType>;
+     durations: Required<ChessboardDurationsType>;
+-};
+-declare const ChessboardPropsContext: React.Context<ChessboardContextType>;
+-declare const ChessboardPropsContextProvider: React.FC<ChessboardProps>;
+-export { ChessboardPropsContextProvider, ChessboardPropsContext };
++}>;
++
++export { ChessboardPropsContext, ChessboardPropsContextProvider };
+ export type { ChessboardProps };
++
+diff --git a/node_modules/react-native-chessboard/src/components/chessboard-background.tsx b/node_modules/react-native-chessboard/src/components/chessboard-background.tsx
+index 2857035..0b40073 100644
+--- a/node_modules/react-native-chessboard/src/components/chessboard-background.tsx
++++ b/node_modules/react-native-chessboard/src/components/chessboard-background.tsx
+@@ -1,6 +1,6 @@
+ /* eslint-disable react-native/no-inline-styles */
+ import React from 'react';
+-import { View, StyleSheet, Text } from 'react-native';
++import { StyleSheet, Text, View } from 'react-native';
+ import { useChessboardProps } from '../context/props-context/hooks';
+ 
+ const styles = StyleSheet.create({
+diff --git a/node_modules/react-native-chessboard/src/components/piece/index.tsx b/node_modules/react-native-chessboard/src/components/piece/index.tsx
+index bbbd539..9692f01 100644
+--- a/node_modules/react-native-chessboard/src/components/piece/index.tsx
++++ b/node_modules/react-native-chessboard/src/components/piece/index.tsx
+@@ -8,11 +8,11 @@ import Animated, {
+   useSharedValue,
+   withTiming,
+ } from 'react-native-reanimated';
+-import { useChessboardProps } from '../../context/props-context/hooks';
+ import { useBoardOperations } from '../../context/board-operations-context/hooks';
+ import { useBoardPromotion } from '../../context/board-promotion-context/hooks';
+ import { usePieceRefs } from '../../context/board-refs-context/hooks';
+ import { useChessEngine } from '../../context/chess-engine-context/hooks';
++import { useChessboardProps } from '../../context/props-context/hooks';
+ import { useReversePiecePosition } from '../../notation';
+ import type { PieceType, Vector } from '../../types';
+ 
+diff --git a/node_modules/react-native-chessboard/src/components/piece/visual-piece.tsx b/node_modules/react-native-chessboard/src/components/piece/visual-piece.tsx
+index 2095fde..44ad1a4 100644
+--- a/node_modules/react-native-chessboard/src/components/piece/visual-piece.tsx
++++ b/node_modules/react-native-chessboard/src/components/piece/visual-piece.tsx
+@@ -1,6 +1,6 @@
+ import React from 'react';
+ import { Image, ImageProps } from 'react-native';
+-import { PIECES } from '../../constants';
++import { PIECES, PIECESBlack } from '../../constants';
+ import { useChessboardProps } from '../../context/props-context/hooks';
+ import type { PieceType } from '../../types';
+ 
+@@ -9,14 +9,14 @@ type ChessPieceType = {
+ } & Partial<ImageProps>;
+ 
+ const ChessPiece: React.FC<ChessPieceType> = React.memo(({ id, ...rest }) => {
+-  const { pieceSize, renderPiece } = useChessboardProps();
++  const { pieceSize, renderPiece, playerPerspective } = useChessboardProps();
+ 
+   return (
+     renderPiece?.(id) ?? (
+       <Image
+         style={[{ width: pieceSize, height: pieceSize }, rest.style]}
+         {...rest}
+-        source={PIECES[id]}
++        source={playerPerspective === "white" ? PIECES[id] : PIECESBlack[id]}
+       />
+     )
+   );
+diff --git a/node_modules/react-native-chessboard/src/components/pieces.tsx b/node_modules/react-native-chessboard/src/components/pieces.tsx
+index 5410d88..d5a01d5 100644
+--- a/node_modules/react-native-chessboard/src/components/pieces.tsx
++++ b/node_modules/react-native-chessboard/src/components/pieces.tsx
+@@ -4,8 +4,9 @@ import { useChessboardProps } from '../context/props-context/hooks';
+ import { useBoard } from '../context/board-context/hooks';
+ import { usePieceRefs } from '../context/board-refs-context/hooks';
+ 
+-import Piece from './piece';
+ import { useReversePiecePosition } from '../notation';
++import type { PieceType } from '../types';
++import Piece from './piece';
+ 
+ const Pieces = React.memo(() => {
+   const board = useBoard();
+@@ -27,7 +28,7 @@ const Pieces = React.memo(() => {
+               <Piece
+                 ref={refs?.current?.[square]}
+                 key={`${x}-${y}`}
+-                id={`${piece.color}${piece.type}` as const}
++                id={`${piece.color}${piece.type}` as PieceType}
+                 startPosition={{ x, y }}
+                 square={square}
+                 size={pieceSize}
+diff --git a/node_modules/react-native-chessboard/src/constants.ts b/node_modules/react-native-chessboard/src/constants.ts
+index 3a45c11..d9b78b6 100644
+--- a/node_modules/react-native-chessboard/src/constants.ts
++++ b/node_modules/react-native-chessboard/src/constants.ts
+@@ -17,4 +17,22 @@ const PIECES: PiecesType = {
+ 
+ const assets = Object.values(PIECES);
+ 
+-export { assets, PIECES };
++const PIECESBlack: PiecesType = {
++  wr: require('./assets/br.png'),
++  wp: require('./assets/bp.png'),
++  wn: require('./assets/bn.png'),
++  wb: require('./assets/bb.png'),
++  wq: require('./assets/bq.png'),
++  wk: require('./assets/bk.png'),
++  br: require('./assets/wr.png'),
++  bn: require('./assets/wn.png'),
++  bb: require('./assets/wb.png'),
++  bq: require('./assets/wq.png'),
++  bk: require('./assets/wk.png'),
++  bp: require('./assets/wp.png'),
++};
++
++const assetsBlack = Object.values(PIECES);
++
++export { assets, assetsBlack, PIECES, PIECESBlack };
++
+diff --git a/node_modules/react-native-chessboard/src/context/board-operations-context/index.tsx b/node_modules/react-native-chessboard/src/context/board-operations-context/index.tsx
+index 2fc9565..af0ed14 100644
+--- a/node_modules/react-native-chessboard/src/context/board-operations-context/index.tsx
++++ b/node_modules/react-native-chessboard/src/context/board-operations-context/index.tsx
+@@ -246,4 +246,5 @@ const BoardOperationsContextProvider = React.memo(
+   BoardOperationsContextProviderComponent
+ );
+ 
+-export { BoardOperationsContextProvider, BoardOperationsContext };
++export { BoardOperationsContext, BoardOperationsContextProvider };
++
+diff --git a/node_modules/react-native-chessboard/src/context/props-context/index.tsx b/node_modules/react-native-chessboard/src/context/props-context/index.tsx
+index 448aa9c..bfd9e65 100644
+--- a/node_modules/react-native-chessboard/src/context/props-context/index.tsx
++++ b/node_modules/react-native-chessboard/src/context/props-context/index.tsx
+@@ -1,3 +1,6 @@
++// File: node_modules/react-native-chessboard/src/context/props-context/index.tsx
++// SIMPLE MODIFICATION: Just add playerPerspective prop
++
+ import type { Move } from 'chess.js';
+ import React, { useMemo } from 'react';
+ import { Dimensions } from 'react-native';
+@@ -43,6 +46,10 @@ type ChessboardProps = {
+    * Indicates the chessboard width and height.
+    */
+   boardSize?: number;
++  /**
++   * NEW: Player perspective - when 'black', swaps piece colors (white becomes black, black becomes white)
++   */
++  playerPerspective?: 'white' | 'black';
+   /**
+    *
+    * It gives the possibility to customise the chessboard pieces.
+@@ -70,7 +77,10 @@ type ChessboardContextType = ChessboardProps &
+       ChessboardProps,
+       'gestureEnabled' | 'withLetters' | 'withNumbers' | 'boardSize'
+     >
+-  > & { pieceSize: number } & {
++  > & { 
++    pieceSize: number;
++    playerPerspective: 'white' | 'black'; 
++  } & {
+     colors: Required<ChessboardColorsType>;
+     durations: Required<ChessboardDurationsType>;
+   };
+@@ -80,6 +90,7 @@ const DEFAULT_BOARD_SIZE = Math.floor(SCREEN_WIDTH / 8) * 8;
+ 
+ const defaultChessboardProps: ChessboardContextType = {
+   gestureEnabled: true,
++  playerPerspective: 'white', // NEW: Default to white (normal colors)
+   colors: {
+     black: '#62B1A8',
+     white: '#D9FDF8',
+@@ -100,12 +111,13 @@ const ChessboardPropsContext = React.createContext<ChessboardContextType>(
+   defaultChessboardProps
+ );
+ 
+-const ChessboardPropsContextProvider: React.FC<ChessboardProps> = React.memo(
++const ChessboardPropsContextProvider: React.FC<React.PropsWithChildren<ChessboardProps>> = React.memo(
+   ({ children, ...rest }) => {
+     const value = useMemo(() => {
+       const data = {
+         ...defaultChessboardProps,
+         ...rest,
++        playerPerspective: rest.playerPerspective || 'white', // NEW: Set player perspective with fallback
+         colors: { ...defaultChessboardProps.colors, ...rest.colors },
+         durations: { ...defaultChessboardProps.durations, ...rest.durations },
+       };
+@@ -120,6 +132,6 @@ const ChessboardPropsContextProvider: React.FC<ChessboardProps> = React.memo(
+   }
+ );
+ 
+-export { ChessboardPropsContextProvider, ChessboardPropsContext };
+-// eslint-disable-next-line no-undef
++export { ChessboardPropsContext, ChessboardPropsContextProvider };
+ export type { ChessboardProps };
++
+diff --git a/node_modules/react-native-chessboard/src/index.tsx b/node_modules/react-native-chessboard/src/index.tsx
+index 7266de4..c0b6fca 100644
+--- a/node_modules/react-native-chessboard/src/index.tsx
++++ b/node_modules/react-native-chessboard/src/index.tsx
+@@ -1,5 +1,5 @@
+ import React, { useImperativeHandle, useRef } from 'react';
+-import { View, StyleSheet } from 'react-native';
++import { StyleSheet, View } from 'react-native';
+ 
+ import Background from './components/chessboard-background';
+ import { HighlightedSquares } from './components/highlighted-squares';

@@ -13,17 +13,14 @@ import {
   View,
 } from "react-native";
 
-// ICON
 import { BackIcon } from "@/components/BackIcon";
 import { BKing } from "@/components/chess/black/BKing";
 import { WKing } from "@/components/chess/white/WKing";
 import { Face } from "@/components/Face";
 import { Setting } from "@/components/icons/Setting";
 
-// Chess Game Component
 import ChessGame from "@/components/ChessGame";
 
-// Constants
 import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
 
 export default function PlayWithAI() {
@@ -38,7 +35,6 @@ export default function PlayWithAI() {
 
   const difficultyLevels = ["Beginner", "Intermediate", "Advanced", "Expert"];
 
-  // Load saved settings on component mount
   useEffect(() => {
     loadSavedSettings();
     checkGameSession();
@@ -187,7 +183,13 @@ export default function PlayWithAI() {
   }
 
   if (gameStarted) {
-    return <ChessGame onQuit={handleGameQuit} onBack={handleBackPress} />;
+    return (
+      <ChessGame
+        onQuit={handleGameQuit}
+        onBack={handleBackPress}
+        playerColor={selectedColor}
+      />
+    );
   }
 
   return (
@@ -195,7 +197,6 @@ export default function PlayWithAI() {
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
 
       <View className="bg-white px-4 py-4 pt-14">
-        {/* NAVBAR */}
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={handleBackPress}
@@ -211,7 +212,6 @@ export default function PlayWithAI() {
           </TouchableOpacity>
         </View>
 
-        {/* WELCOME */}
         <View className="px-6 pt-6 mb-4">
           <View className="flex-row  gap-4 justify-center items-center">
             <Face height={70} width={70} />
@@ -233,7 +233,6 @@ export default function PlayWithAI() {
 
       <View className="px-6 pb-6 bg-white border-t border-gray-100">
         <View className="flex-row items-center justify-center mb-4 pt-4">
-          {/* Difficulty Dropdown */}
           <TouchableOpacity
             onPress={() => setDropdownVisible(true)}
             className="bg-white rounded-full w-56 justify-center border border-gray-300 px-4 py-3 flex-row items-center mr-4 shadow-sm"
@@ -244,7 +243,6 @@ export default function PlayWithAI() {
             <Text className="text-gray-400 text-xs">▼</Text>
           </TouchableOpacity>
 
-          {/* Color Selection */}
           <View className="flex-row space-x-2 gap-4">
             <TouchableOpacity
               onPress={() => handleColorSelect("white")}
