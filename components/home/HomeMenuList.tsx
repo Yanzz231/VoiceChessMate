@@ -63,8 +63,7 @@ export const HomeMenuList: React.FC = () => {
       title: "Settings",
       description: "Customize voice commands and game preferences",
       onPress: () => {
-        // TODO: Implement settings functionality
-        console.log("Settings pressed");
+        router.push("/settings");
       },
     },
   ];

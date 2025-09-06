@@ -1,24 +1,46 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Chess } from "chess.js";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  BackHandler,
+  Dimensions,
+  Modal,
   SafeAreaView,
   StatusBar,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import Chessboard, { ChessboardRef } from "react-native-chessboard";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+
+import { BBishop } from "@/components/chess/black/BBishop";
+import { BKing } from "@/components/chess/black/BKing";
+import { BKnight } from "@/components/chess/black/BKnight";
+import { BPawn } from "@/components/chess/black/BPawn";
+import { BQueen } from "@/components/chess/black/BQueen";
+import { BRook } from "@/components/chess/black/BRook";
+import { WBishop } from "@/components/chess/white/WBishop";
+import { WKing } from "@/components/chess/white/WKing";
+import { WKnight } from "@/components/chess/white/WKnight";
+import { WPawn } from "@/components/chess/white/WPawn";
+import { WQueen } from "@/components/chess/white/WQueen";
+import { WRook } from "@/components/chess/white/WRook";
 
 import { BackIcon } from "@/components/BackIcon";
+import ChessSettings from "@/components/ChessSettings";
 import { Setting } from "@/components/icons/Setting";
+import QuickThemeSelector from "./QuickThemeSelector";
 import { FlagIcon } from "./icons/FlagIcon";
 import { HintIcon } from "./icons/HintIcon";
 import { Mic } from "./icons/Mic";
 import { OptionIcon } from "./icons/OptionIcon";
 import { UndoIcon } from "./icons/UndoIcon";
 
+import {
+  CHESS_THEMES,
+  ChessTheme,
+  DEFAULT_THEME,
+} from "@/constants/chessThemes";
 import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
 
 interface ChessGameProps {
@@ -33,39 +55,124 @@ interface GameState {
   timestamp: number;
 }
 
-const WHITE_INITIAL_FEN =
-  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-const BLACK_INITIAL_FEN =
-  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1";
+interface PendingPromotion {
+  from: string;
+  to: string;
+  color: "w" | "b";
+}
 
-export default function ChessGame({
+const { width } = Dimensions.get("window");
+const boardSize = width - 32;
+const squareSize = boardSize / 8;
+
+const pieceComponents = {
+  wp: WPawn,
+  wr: WRook,
+  wn: WKnight,
+  wb: WBishop,
+  wq: WQueen,
+  wk: WKing,
+  bp: BPawn,
+  br: BRook,
+  bn: BKnight,
+  bb: BBishop,
+  bq: BQueen,
+  bk: BKing,
+};
+
+type PieceType = keyof typeof pieceComponents;
+type PromotionPiece = "q" | "r" | "b" | "n";
+
+const CustomChessGame: React.FC<ChessGameProps> = ({
   onQuit,
   onBack,
   playerColor,
-}: ChessGameProps) {
-  const INITIAL_FEN =
-    playerColor === "white" ? WHITE_INITIAL_FEN : BLACK_INITIAL_FEN;
-
-  const [fen, setFen] = useState(INITIAL_FEN);
-  const [moveHistory, setMoveHistory] = useState<string[]>([]);
-  const [gameStates, setGameStates] = useState<GameState[]>([
-    { fen: INITIAL_FEN, moveHistory: [], timestamp: Date.now() },
-  ]);
+}) => {
+  const [game, setGame] = useState(() => new Chess());
+  const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
+  const [possibleMoves, setPossibleMoves] = useState<string[]>([]);
+  const [gameStates, setGameStates] = useState<GameState[]>([]);
   const [currentStateIndex, setCurrentStateIndex] = useState(0);
   const [gameStatus, setGameStatus] = useState<
     "playing" | "checkmate" | "stalemate" | "draw"
   >("playing");
-  const chessboardRef = useRef<ChessboardRef>(null);
+  const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(
+    null
+  );
+  const [showPromotionModal, setShowPromotionModal] = useState(false);
+  const [pendingPromotion, setPendingPromotion] =
+    useState<PendingPromotion | null>(null);
+  const [currentTheme, setCurrentTheme] = useState<ChessTheme>(DEFAULT_THEME);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showQuickThemeSelector, setShowQuickThemeSelector] = useState(false);
+  const gameRef = useRef(game);
 
   useEffect(() => {
+    initializeGame();
     loadGameState();
+    loadTheme();
   }, []);
 
   useEffect(() => {
+    gameRef.current = game;
     saveGameState();
-  }, [gameStates, currentStateIndex]);
+    checkGameStatus();
+  }, [game]);
 
-  const loadGameState = async () => {
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (showSettings || showQuickThemeSelector || showPromotionModal) {
+          return false;
+        }
+
+        Alert.alert(
+          "Quit Game",
+          "Are you sure you want to quit? Your game progress will be lost.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Quit",
+              style: "destructive",
+              onPress: onBack,
+            },
+          ]
+        );
+        return true;
+      }
+    );
+
+    return () => backHandler.remove();
+  }, [showSettings, showQuickThemeSelector, showPromotionModal, onBack]);
+
+  const loadTheme = async () => {
+    try {
+      const savedThemeId = await AsyncStorage.getItem(CHESS_STORAGE_KEYS.THEME);
+      if (savedThemeId) {
+        const theme =
+          CHESS_THEMES.find((t) => t.id === savedThemeId) || DEFAULT_THEME;
+        setCurrentTheme(theme);
+      }
+    } catch (error) {
+      console.error("Error loading theme:", error);
+    }
+  };
+
+  const handleThemeChange = (theme: ChessTheme) => {
+    setCurrentTheme(theme);
+  };
+
+  const initializeGame = () => {
+    const newGame = new Chess();
+    setGame(newGame);
+    addGameState(newGame.fen(), []);
+  };
+
+  const loadGameState = async (): Promise<boolean> => {
     try {
       const savedStates = await AsyncStorage.getItem(
         CHESS_STORAGE_KEYS.GAME_STATES
@@ -83,116 +190,73 @@ export default function ChessGame({
 
         const currentState = states[index];
         if (currentState) {
-          setFen(currentState.fen);
-          setMoveHistory(currentState.moveHistory);
+          const newGame = new Chess(currentState.fen);
+          setGame(newGame);
         }
+        return true;
       }
+      return false;
     } catch (error) {
       console.error("Error loading game state:", error);
+      return false;
     }
   };
 
   const saveGameState = async () => {
     try {
-      await AsyncStorage.setItem(
-        CHESS_STORAGE_KEYS.GAME_STATES,
-        JSON.stringify(gameStates)
-      );
-      await AsyncStorage.setItem(
-        CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX,
-        currentStateIndex.toString()
-      );
+      if (gameStates.length > 0) {
+        await AsyncStorage.setItem(
+          CHESS_STORAGE_KEYS.GAME_STATES,
+          JSON.stringify(gameStates)
+        );
+        await AsyncStorage.setItem(
+          CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX,
+          currentStateIndex.toString()
+        );
+      }
     } catch (error) {
       console.error("Error saving game state:", error);
     }
   };
 
-  const clearAllGameData = async () => {
-    try {
-      await AsyncStorage.multiRemove([
-        CHESS_STORAGE_KEYS.GAME_STATES,
-        CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX,
-        CHESS_STORAGE_KEYS.GAME_SESSION,
-        CHESS_STORAGE_KEYS.DIFFICULTY,
-        CHESS_STORAGE_KEYS.COLOR,
-        CHESS_STORAGE_KEYS.GAME_FEN,
-      ]);
-    } catch (error) {
-      console.error("Error clearing all game data:", error);
-    }
-  };
-
-  const resetGameToInitialState = () => {
-    setFen(INITIAL_FEN);
-    setMoveHistory([]);
-    setGameStates([
-      { fen: INITIAL_FEN, moveHistory: [], timestamp: Date.now() },
-    ]);
-    setCurrentStateIndex(0);
-    setGameStatus("playing");
-  };
-
-  const addGameState = (newFen: string, newMoveHistory: string[]) => {
+  const addGameState = (fen: string, moveHistory: string[]) => {
     const newState: GameState = {
-      fen: newFen,
-      moveHistory: [...newMoveHistory],
+      fen,
+      moveHistory: [...moveHistory],
       timestamp: Date.now(),
     };
 
-    const newStates = gameStates.slice(0, currentStateIndex + 1);
-    newStates.push(newState);
+    setGameStates((prev) => {
+      const newStates = prev.slice(0, currentStateIndex + 1);
+      newStates.push(newState);
+      return newStates;
+    });
 
-    setGameStates(newStates);
-    setCurrentStateIndex(newStates.length - 1);
+    setCurrentStateIndex((prev) => prev + 1);
   };
 
-  const handleMove = ({ state }: { state: any }) => {
-    if (!state || !state.fen) return;
-
-    const newFen = state.fen;
-    setFen(newFen);
-
-    let newMoveHistory = [...moveHistory];
-
-    if (
-      state.history &&
-      Array.isArray(state.history) &&
-      state.history.length > 0
-    ) {
-      newMoveHistory = state.history.map((move: any) => move.san || move);
-      setMoveHistory(newMoveHistory);
-    } else if (state.move) {
-      const moveNotation = state.move.san || state.move;
-      newMoveHistory = [...moveHistory, moveNotation];
-      setMoveHistory(newMoveHistory);
+  const checkGameStatus = () => {
+    if (game.isCheckmate()) {
+      setGameStatus("checkmate");
+      handleGameEnd("checkmate");
+    } else if (game.isStalemate()) {
+      setGameStatus("stalemate");
+      handleGameEnd("stalemate");
+    } else if (game.isDraw()) {
+      setGameStatus("draw");
+      handleGameEnd("draw");
     } else {
-      newMoveHistory = [...moveHistory, `Move${moveHistory.length + 1}`];
-      setMoveHistory(newMoveHistory);
-    }
-
-    addGameState(newFen, newMoveHistory);
-
-    if (state.game_over) {
-      if (state.in_checkmate) {
-        setGameStatus("checkmate");
-        handleGameEnd("checkmate");
-      } else if (state.in_stalemate) {
-        setGameStatus("stalemate");
-        handleGameEnd("stalemate");
-      } else if (state.in_draw) {
-        setGameStatus("draw");
-        handleGameEnd("draw");
-      }
+      setGameStatus("playing");
     }
   };
 
   const handleGameEnd = (status: string) => {
     let message = "";
-    const currentPlayer = fen.split(" ")[1] === "w" ? "Black" : "White";
+    const winner = game.turn() === "w" ? "Black" : "White";
 
     switch (status) {
       case "checkmate":
-        message = `Game Over! ${currentPlayer} wins by checkmate.`;
+        message = `Game Over! ${winner} wins by checkmate.`;
         break;
       case "stalemate":
         message = "Game ended in stalemate!";
@@ -204,51 +268,92 @@ export default function ChessGame({
 
     setTimeout(() => {
       Alert.alert("Game Over", message, [
-        {
-          text: "New Game",
-          onPress: handleNewGame,
-        },
-        {
-          text: "Quit",
-          onPress: handleGameQuit,
-        },
+        { text: "New Game", onPress: handleNewGame },
+        { text: "Quit", onPress: onQuit },
       ]);
     }, 1000);
   };
 
-  const handleNewGame = async () => {
-    try {
-      await clearAllGameData();
-      resetGameToInitialState();
+  const isPawnPromotion = (from: string, to: string): boolean => {
+    const piece = game.get(from as any);
+    if (!piece || piece.type !== "p") return false;
 
-      if (chessboardRef.current) {
-        chessboardRef.current.resetBoard(INITIAL_FEN);
+    const toRank = parseInt(to[1]);
+    return (
+      (piece.color === "w" && toRank === 8) ||
+      (piece.color === "b" && toRank === 1)
+    );
+  };
+
+  const handleSquarePress = (square: string) => {
+    if (gameStatus !== "playing") return;
+
+    if (selectedSquare === null) {
+      const piece = game.get(square as any);
+      if (piece && piece.color === game.turn()) {
+        setSelectedSquare(square);
+        const moves = game.moves({ square: square as any, verbose: true });
+        setPossibleMoves(moves.map((move) => move.to));
       }
-    } catch (error) {
-      console.error("Error starting new game:", error);
+    } else if (selectedSquare === square) {
+      setSelectedSquare(null);
+      setPossibleMoves([]);
+    } else {
+      if (isPawnPromotion(selectedSquare, square)) {
+        const piece = game.get(selectedSquare as any);
+        setPendingPromotion({
+          from: selectedSquare,
+          to: square,
+          color: piece!.color,
+        });
+        setShowPromotionModal(true);
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+        return;
+      }
+
+      try {
+        const move = game.move({
+          from: selectedSquare as any,
+          to: square as any,
+          promotion: "q",
+        });
+
+        if (move) {
+          setLastMove({ from: selectedSquare, to: square });
+          addGameState(game.fen(), game.history());
+          setGame(new Chess(game.fen()));
+        }
+      } catch (error) {
+        console.log("Invalid move:", error);
+      }
+
+      setSelectedSquare(null);
+      setPossibleMoves([]);
     }
   };
 
-  const handleGameQuit = async () => {
-    Alert.alert(
-      "Quit Game",
-      "Are you sure you want to quit? Your game progress will be lost.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Quit",
-          style: "destructive",
-          onPress: async () => {
-            await clearAllGameData();
-            resetGameToInitialState();
-            onQuit();
-          },
-        },
-      ]
-    );
+  const handlePromotion = (promotionPiece: PromotionPiece) => {
+    if (!pendingPromotion) return;
+
+    try {
+      const move = game.move({
+        from: pendingPromotion.from as any,
+        to: pendingPromotion.to as any,
+        promotion: promotionPiece,
+      });
+
+      if (move) {
+        setLastMove({ from: pendingPromotion.from, to: pendingPromotion.to });
+        addGameState(game.fen(), game.history());
+        setGame(new Chess(game.fen()));
+      }
+    } catch (error) {
+      console.log("Invalid promotion:", error);
+    }
+
+    setShowPromotionModal(false);
+    setPendingPromotion(null);
   };
 
   const handleUndo = () => {
@@ -261,157 +366,402 @@ export default function ChessGame({
     const previousState = gameStates[newIndex];
 
     setCurrentStateIndex(newIndex);
-    setFen(previousState.fen);
-    setMoveHistory(previousState.moveHistory);
+    const newGame = new Chess(previousState.fen);
+    setGame(newGame);
     setGameStatus("playing");
+    setSelectedSquare(null);
+    setPossibleMoves([]);
+    setLastMove(null);
+  };
 
-    if (chessboardRef.current) {
-      chessboardRef.current.resetBoard(previousState.fen);
+  const handleNewGame = async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        CHESS_STORAGE_KEYS.GAME_STATES,
+        CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX,
+        CHESS_STORAGE_KEYS.GAME_SESSION,
+        CHESS_STORAGE_KEYS.DIFFICULTY,
+        CHESS_STORAGE_KEYS.COLOR,
+        CHESS_STORAGE_KEYS.GAME_FEN,
+      ]);
+
+      const newGame = new Chess();
+      setGame(newGame);
+      setGameStates([]);
+      setCurrentStateIndex(0);
+      setGameStatus("playing");
+      setSelectedSquare(null);
+      setPossibleMoves([]);
+      setLastMove(null);
+      addGameState(newGame.fen(), []);
+    } catch (error) {
+      console.error("Error starting new game:", error);
     }
   };
 
-  const handleHint = () => {
-    Alert.alert(
-      "Hint",
-      "Analyze the board position and look for tactical opportunities!"
-    );
-  };
-
   const handleOption = () => {
-    Alert.alert("Options", "Game options and settings", [
+    Alert.alert("Game Options", "Choose an option", [
       { text: "New Game", onPress: handleNewGame },
-      { text: "Quit Game", onPress: handleGameQuit, style: "destructive" },
+      { text: "Change Theme", onPress: () => setShowQuickThemeSelector(true) },
       { text: "Cancel", style: "cancel" },
     ]);
   };
 
-  const canUndo = currentStateIndex > 0;
-  const currentPlayer = fen.split(" ")[1] === "w" ? "White" : "Black";
+  const handleSettingsPress = () => {
+    Alert.alert(
+      "Open Settings",
+      "Opening settings might affect your current game progress. Are you sure you want to continue?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Yes, Open Settings",
+          style: "default",
+          onPress: () => setShowSettings(true),
+        },
+      ]
+    );
+  };
 
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+  const handleHint = () => {
+    if (gameStatus !== "playing") return;
 
-        <View className="bg-white px-4 py-4 pt-14 shadow-sm">
-          <View className="flex-row items-center justify-between">
-            <TouchableOpacity
-              onPress={onBack}
-              className="w-10 h-10 justify-center items-center"
-            >
-              <BackIcon height={30} width={30} />
-            </TouchableOpacity>
-            <View className="flex-1 items-center">
-              <Text className="text-lg font-semibold text-gray-800">
-                Chess Game
-              </Text>
-              <Text className="text-sm text-gray-500">
-                {currentPlayer} to move
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={handleGameQuit}
-              className="w-10 h-10 justify-center items-center"
-            >
-              <Setting height={30} width={30} color="#000" />
-            </TouchableOpacity>
-          </View>
-        </View>
+    const moves = game.moves({ verbose: true });
+    if (moves.length > 0) {
+      const randomMove = moves[Math.floor(Math.random() * moves.length)];
+      Alert.alert(
+        "Hint",
+        `Consider moving from ${randomMove.from} to ${randomMove.to}`
+      );
+    }
+  };
 
-        <View className="px-4 py-3 bg-white border-b border-gray-100">
-          <View className="flex-row justify-between items-center">
-            <Text className="text-base font-medium text-gray-700">
-              {gameStatus === "playing"
-                ? `${currentPlayer}'s turn`
-                : "Game Over"}
-            </Text>
-            <Text className="text-sm text-gray-500">
-              Moves: {moveHistory?.length || 0} | States:{" "}
-              {currentStateIndex + 1}/{gameStates.length}
-            </Text>
-          </View>
-        </View>
+  const renderPiece = (piece: any, square: string) => {
+    if (!piece) return null;
 
-        <View className="flex-1 justify-center items-center px-4">
+    const pieceKey = `${piece.color}${piece.type}` as PieceType;
+    const PieceComponent = pieceComponents[pieceKey];
+
+    if (!PieceComponent) return null;
+
+    const pieceSize = squareSize * 0.8;
+
+    return (
+      <PieceComponent width={pieceSize} height={pieceSize} fillColor="none" />
+    );
+  };
+
+  const renderSquare = (
+    square: string,
+    piece: any,
+    rowIndex: number,
+    colIndex: number
+  ) => {
+    const isLight = (rowIndex + colIndex) % 2 === 0;
+    const isSelected = selectedSquare === square;
+    const isPossibleMove = possibleMoves.includes(square);
+    const isLastMoveSquare =
+      lastMove && (lastMove.from === square || lastMove.to === square);
+
+    let backgroundColor = isLight
+      ? currentTheme.lightSquare
+      : currentTheme.darkSquare;
+
+    if (isSelected) {
+      backgroundColor = currentTheme.selectedSquare;
+    } else if (isLastMoveSquare) {
+      backgroundColor = currentTheme.lastMoveSquare;
+    }
+
+    return (
+      <TouchableOpacity
+        key={square}
+        style={{
+          width: squareSize,
+          height: squareSize,
+          backgroundColor,
+          justifyContent: "center",
+          alignItems: "center",
+          position: "relative",
+        }}
+        onPress={() => handleSquarePress(square)}
+      >
+        {renderPiece(piece, square)}
+
+        {isPossibleMove && !piece && (
           <View
             style={{
-              flex: 1,
-              alignItems: "center",
-              justifyContent: "center",
+              width: squareSize * 0.3,
+              height: squareSize * 0.3,
+              borderRadius: squareSize * 0.15,
+              backgroundColor: "rgba(0, 0, 0, 0.3)",
             }}
-            className="bg-white rounded-lg shadow-lg z-50 "
+          />
+        )}
+
+        {isPossibleMove && piece && (
+          <View
+            style={{
+              position: "absolute",
+              width: squareSize,
+              height: squareSize,
+              borderWidth: 3,
+              borderColor: "rgba(255, 0, 0, 0.7)",
+              borderRadius: 4,
+            }}
+          />
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderBoard = () => {
+    const board = game.board();
+    const squares = [];
+
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const actualRow = playerColor === "white" ? row : 7 - row;
+        const actualCol = playerColor === "white" ? col : 7 - col;
+
+        const piece = board[actualRow][actualCol];
+        const square = String.fromCharCode(97 + actualCol) + (8 - actualRow);
+
+        squares.push(renderSquare(square, piece, row, col));
+      }
+    }
+
+    return (
+      <View
+        style={{
+          width: boardSize,
+          height: boardSize,
+          flexDirection: "row",
+          flexWrap: "wrap",
+        }}
+      >
+        {squares}
+      </View>
+    );
+  };
+
+  const renderPromotionModal = () => {
+    if (!pendingPromotion) return null;
+
+    const isWhite = pendingPromotion.color === "w";
+    const promotionPieces = [
+      {
+        type: "q",
+        component: isWhite ? WQueen : BQueen,
+        name: "Queen",
+      },
+      {
+        type: "r",
+        component: isWhite ? WRook : BRook,
+        name: "Rook",
+      },
+      {
+        type: "b",
+        component: isWhite ? WBishop : BBishop,
+        name: "Bishop",
+      },
+      {
+        type: "n",
+        component: isWhite ? WKnight : BKnight,
+        name: "Knight",
+      },
+    ];
+
+    return (
+      <Modal
+        visible={showPromotionModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View className="flex-1 bg-black/60 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Pawn Promotion
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6">
+              Choose what piece your pawn becomes:
+            </Text>
+
+            <View className="flex-row gap-4 justify-around items-center m-4">
+              {promotionPieces.map((piece) => {
+                const PieceComponent = piece.component;
+                return (
+                  <TouchableOpacity
+                    key={piece.type}
+                    onPress={() =>
+                      handlePromotion(piece.type as PromotionPiece)
+                    }
+                    className="items-center p-3 rounded-2xl bg-gray-50 border-2 border-gray-200  active:border-indigo-300"
+                    style={{ width: 80, height: 90 }}
+                  >
+                    <View className="w-12 h-12 justify-center items-center mb-2">
+                      <PieceComponent width={48} height={48} fillColor="none" />
+                    </View>
+                    <Text className="text-sm font-medium text-gray-700 text-center">
+                      {piece.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text className="text-xs text-gray-500 text-center">
+              Tap on a piece to promote your pawn
+            </Text>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  if (showSettings) {
+    return (
+      <ChessSettings
+        onBack={() => setShowSettings(false)}
+        currentTheme={currentTheme}
+        onThemeChange={handleThemeChange}
+      />
+    );
+  }
+
+  const currentPlayer = game.turn() === "w" ? "White" : "Black";
+  const canUndo = currentStateIndex > 0;
+  const moveCount = game.history().length;
+
+  return (
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+
+      <View className="bg-white px-4 py-4 pt-14 shadow-sm">
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity
+            onPress={onBack}
+            className="w-10 h-10 justify-center items-center"
           >
-            <Chessboard
-              ref={chessboardRef}
-              fen={fen}
-              onMove={handleMove}
-              gestureEnabled={gameStatus === "playing"}
-              playerPerspective={playerColor}
-            />
+            <BackIcon height={30} width={30} />
+          </TouchableOpacity>
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-semibold text-gray-800">
+              Chess Game
+            </Text>
+            <Text className="text-sm text-gray-500">
+              {currentPlayer} to move • {currentTheme.name}
+            </Text>
           </View>
+          <TouchableOpacity
+            onPress={() => handleSettingsPress()}
+            className="w-10 h-10 justify-center items-center"
+          >
+            <Setting height={30} width={30} color="#000" />
+          </TouchableOpacity>
         </View>
+      </View>
 
-        <View className="bg-white px-4 py-6 border-t border-gray-100">
-          <View className="flex-row items-center justify-between">
-            <TouchableOpacity
-              onPress={handleOption}
-              className="items-center flex-1"
-            >
-              <View className="w-12 h-12 items-center justify-center mb-2">
-                <OptionIcon width={30} height={30} />
-              </View>
-              <Text className="text-sm font-medium text-gray-600">Option</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleGameQuit}
-              className="items-center flex-1"
-            >
-              <View className="w-12 h-12 items-center justify-center mb-2">
-                <FlagIcon width={30} height={30} />
-              </View>
-              <Text className="text-sm font-medium text-gray-600">Quit</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity className="items-center flex-1">
-              <View className="w-16 h-16 bg-indigo-600 rounded-full items-center justify-center mb-2 shadow-lg">
-                <Mic height={24} width={24} color="white" />
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleHint}
-              className="items-center flex-1"
-            >
-              <View className="w-12 h-12 items-center justify-center mb-2">
-                <HintIcon width={30} height={30} />
-              </View>
-              <Text className="text-sm font-medium text-gray-600">Hint</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleUndo}
-              disabled={!canUndo}
-              className="items-center flex-1"
-            >
-              <View
-                className={`w-12 h-12 items-center justify-center mb-2 ${
-                  !canUndo ? "opacity-30" : ""
-                }`}
-              >
-                <UndoIcon width={30} height={30} />
-              </View>
-              <Text
-                className={`text-sm font-medium ${
-                  !canUndo ? "text-gray-300" : "text-gray-600"
-                }`}
-              >
-                Undo
-              </Text>
-            </TouchableOpacity>
-          </View>
+      <View className="px-4 py-3 bg-white border-b border-gray-100">
+        <View className="flex-row justify-between items-center">
+          <Text className="text-base font-medium text-gray-700">
+            {gameStatus === "playing" ? `${currentPlayer}'s turn` : "Game Over"}
+          </Text>
+          <Text className="text-sm text-gray-500">
+            Moves: {gameStates.length} | States: {currentStateIndex + 1}/
+            {gameStates.length}
+          </Text>
         </View>
-      </SafeAreaView>
-    </GestureHandlerRootView>
+        {game.inCheck() && gameStatus === "playing" && (
+          <Text className="text-red-600 font-medium mt-1">Check!</Text>
+        )}
+      </View>
+
+      <View className="flex-1 justify-center items-center px-4 py-4 bg-gray-100">
+        <View
+          style={{
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
+          }}
+        >
+          {renderBoard()}
+        </View>
+      </View>
+
+      <View className="bg-white px-4 py-6 border-t border-gray-100">
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity
+            onPress={handleOption}
+            className="items-center flex-1"
+          >
+            <View className="w-12 h-12 items-center justify-center mb-2">
+              <OptionIcon width={30} height={30} />
+            </View>
+            <Text className="text-sm font-medium text-gray-600">Option</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={onQuit} className="items-center flex-1">
+            <View className="w-12 h-12 items-center justify-center mb-2">
+              <FlagIcon width={30} height={30} />
+            </View>
+            <Text className="text-sm font-medium text-gray-600">Quit</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity className="items-center flex-1">
+            <View className="w-16 h-16 bg-indigo-600 rounded-full items-center justify-center mb-2 shadow-lg">
+              <Mic height={24} width={24} color="white" />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleHint}
+            className="items-center flex-1"
+          >
+            <View className="w-12 h-12 items-center justify-center mb-2">
+              <HintIcon width={30} height={30} />
+            </View>
+            <Text className="text-sm font-medium text-gray-600">Hint</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleUndo}
+            disabled={!canUndo}
+            className="items-center flex-1"
+          >
+            <View
+              className={`w-12 h-12 items-center justify-center mb-2 ${
+                !canUndo ? "opacity-30" : ""
+              }`}
+            >
+              <UndoIcon width={30} height={30} />
+            </View>
+            <Text
+              className={`text-sm font-medium ${
+                !canUndo ? "text-gray-300" : "text-gray-600"
+              }`}
+            >
+              Undo
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {renderPromotionModal()}
+
+      <QuickThemeSelector
+        visible={showQuickThemeSelector}
+        onClose={() => setShowQuickThemeSelector(false)}
+        currentTheme={currentTheme}
+        onThemeChange={handleThemeChange}
+      />
+    </SafeAreaView>
   );
-}
+};
+
+export default CustomChessGame;
