@@ -47,7 +47,8 @@
           "microphonePermission": "This app needs access to the microphone for voice recognition.",
           "speechRecognitionPermission": "This app uses speech recognition to convert speech to text."
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true
