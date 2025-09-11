@@ -33,8 +33,7 @@ export const HomeMenuList: React.FC = () => {
       title: "Scan",
       description: "Analyze chess positions and get strategic insights",
       onPress: () => {
-        // TODO: Implement scan functionality
-        console.log("Scan pressed");
+        router.push("/scan");
       },
     },
     {

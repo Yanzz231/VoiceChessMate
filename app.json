@@ -11,8 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to the camera to take photos and scan objects.",
         "NSMicrophoneUsageDescription": "This app needs access to the microphone for voice recognition features.",
-        "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to convert your speech to text."
+        "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to convert your speech to text.",
+        "NSPhotoLibraryUsageDescription": "This app saves photos to your photo library."
       }
     },
     "android": {
@@ -24,12 +26,13 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "RECORD_AUDIO",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "VIBRATE",
-        "INTERNET",
-        "MODIFY_AUDIO_SETTINGS"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.VIBRATE",
+        "android.permission.INTERNET",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
@@ -48,7 +51,23 @@
           "speechRecognitionPermission": "This app uses speech recognition to convert speech to text."
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "This app needs access to the camera to take photos and scan objects.",
+          "microphonePermission": "This app needs access to the microphone for video recording.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "This app needs access to save photos to your gallery.",
+          "savePhotosPermission": "This app saves captured photos to your gallery.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
