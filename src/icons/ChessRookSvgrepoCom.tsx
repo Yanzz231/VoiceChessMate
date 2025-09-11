@@ -1,0 +1,16 @@
+import * as React from "react";
+import type { SvgProps } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
+const SvgChessRookSvgrepoCom = (props: SvgProps) => (
+  <Svg
+
+    width={800}
+    height={800}
+
+    viewBox="0 0 76 76"
+    {...props}
+  >
+    <Path d="M28.5 15.833h3.958l.792 4.75h1.583v-4.75h6.334v4.75h1.583l1.583-4.75H47.5c0 4.223 0 8.445-3.167 10.556-.384.256-.42.086-.886.28l.886 14.498h4.355v1.583l-2.771.396c0 4.75 5.145 10.687 5.145 17.02H24.939c0-6.333 5.145-12.27 5.145-17.02l-2.77-.396v-1.583h4.354l.886-14.498c-.467-.195-.502-.024-.886-.28C28.5 24.278 28.5 20.056 28.5 15.833" />
+  </Svg>
+);
+export default SvgChessRookSvgrepoCom;
