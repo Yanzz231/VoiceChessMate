@@ -1,7 +1,13 @@
 import { GoogleSvg } from "@/components/icons/Google";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface LoginFormProps {
   loading: boolean;
@@ -15,12 +21,17 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   return (
     <View className="bg-white rounded-t-3xl px-8 pt-10 pb-12 shadow-2xl">
       <View className="flex-row items-center mb-6">
-        <View className="w-10 h-10 rounded-lg bg-gray-100 justify-center items-center mr-3">
-          <Text className="text-lg">♟</Text>
+        <View className="w-20 h-20 rounded-lg  justify-center items-center mr-3">
+          <Image
+            source={require("../../assets/images/logo.png")}
+            style={{ width: 120, height: 100 }}
+            resizeMode="contain"
+          />
         </View>
         <Text className="text-2xl font-bold text-gray-900">ChessMate</Text>
       </View>
 
+      {/* Rest of your code remains the same */}
       <Text className="text-lg font-semibold text-gray-900 leading-7 mb-4">
         Rasakan setiap langkah - mainkan catur dengan mudah, hanya menggunakan
         suara Anda

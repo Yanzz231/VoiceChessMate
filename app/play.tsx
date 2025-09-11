@@ -171,6 +171,10 @@ export default function PlayWithAI() {
     }
   };
 
+  const handleSettingsPress = () => {
+    router.push("/settings");
+  };
+
   const handleGameQuit = async () => {
     Alert.alert(
       "Quit Game",
@@ -229,7 +233,10 @@ export default function PlayWithAI() {
           <Text className="text-lg font-semibold text-gray-800">
             Play with AI
           </Text>
-          <TouchableOpacity className="w-10 h-10 justify-center items-center">
+          <TouchableOpacity
+            onPress={handleSettingsPress}
+            className="w-10 h-10 justify-center items-center"
+          >
             <Setting height={30} width={30} color="#000" />
           </TouchableOpacity>
         </View>
@@ -347,9 +354,6 @@ export default function PlayWithAI() {
                   >
                     {item}
                   </Text>
-                  {selectedLevel === item && (
-                    <Text className="text-indigo-600 text-lg">✓</Text>
-                  )}
                 </View>
               </TouchableOpacity>
             ))}

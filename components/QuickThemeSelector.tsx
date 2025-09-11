@@ -107,12 +107,6 @@ const QuickThemeSelector: React.FC<QuickThemeSelectorProps> = ({
             />
           </View>
         </View>
-
-        {isSelected && (
-          <View className="w-6 h-6 bg-indigo-500 rounded-full items-center justify-center">
-            <Text className="text-white font-bold text-xs">✓</Text>
-          </View>
-        )}
       </TouchableOpacity>
     );
   };

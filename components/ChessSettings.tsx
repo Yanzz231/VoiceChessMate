@@ -129,7 +129,7 @@ const ChessSettings: React.FC<ChessSettingsProps> = ({
                   type="k"
                   color="w"
                   theme={theme.version}
-                  size={32}
+                  size={40}
                 />
                 <Text className="text-xs text-gray-500 mt-1">White</Text>
               </View>

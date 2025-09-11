@@ -12,7 +12,6 @@ import {
 } from "react-native";
 
 import { BackIcon } from "@/components/BackIcon";
-import { Setting } from "@/components/icons/Setting";
 import {
   DEFAULT_PIECE_THEME,
   PIECE_THEMES,
@@ -196,12 +195,6 @@ export default function SettingsPage() {
               </View>
             </View>
           </View>
-
-          {isSelected && (
-            <View className="w-8 h-8 bg-indigo-500 rounded-full items-center justify-center ml-4">
-              <Text className="text-white font-bold text-lg">✓</Text>
-            </View>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -239,7 +232,9 @@ export default function SettingsPage() {
             <Text className="text-sm text-gray-500 mb-4">
               {theme.version === "v1"
                 ? "Classic stroke style"
-                : "Modern filled style"}
+                : theme.version === "v2"
+                ? "Modern filled style"
+                : "Elegant detailed style"}
             </Text>
 
             <View className="flex-row items-center gap-3">
@@ -265,9 +260,9 @@ export default function SettingsPage() {
                     const Component =
                       V1Components[pieceType as keyof typeof V1Components];
                     return <Component width={28} height={28} color="#000000" />;
-                  } else {
+                  } else if (theme.version === "v2") {
                     const V2Components = {
-                      k: require("@/components/chess/ChessKingV1").KingV1,
+                      k: require("@/components/chess/ChessKingV2").KingV2,
                       q: require("@/components/chess/ChessQueenV2").QueenV2,
                       r: require("@/components/chess/ChessRookV2").RookV2,
                       b: require("@/components/chess/ChessBishopV2").BishopV2,
@@ -276,6 +271,19 @@ export default function SettingsPage() {
                     };
                     const Component =
                       V2Components[pieceType as keyof typeof V2Components];
+                    return <Component width={28} height={28} color="#000000" />;
+                  } else {
+                    // v3
+                    const V3Components = {
+                      k: require("@/components/chess/ChessKingV3").KingV3,
+                      q: require("@/components/chess/ChessQueenV3").QueenV3,
+                      r: require("@/components/chess/ChessRookV3").RookV3,
+                      b: require("@/components/chess/ChessBishopV3").BishopV3,
+                      n: require("@/components/chess/ChessHorseV3").HorseV3,
+                      p: require("@/components/chess/ChessPawnV3").PawnV3,
+                    };
+                    const Component =
+                      V3Components[pieceType as keyof typeof V3Components];
                     return <Component width={28} height={28} color="#000000" />;
                   }
                 };
@@ -291,12 +299,6 @@ export default function SettingsPage() {
               })}
             </View>
           </View>
-
-          {isSelected && (
-            <View className="w-8 h-8 bg-indigo-500 rounded-full items-center justify-center ml-4">
-              <Text className="text-white font-bold text-lg">✓</Text>
-            </View>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -331,9 +333,6 @@ export default function SettingsPage() {
             <Text className="text-sm text-gray-500">
               Customize your app experience
             </Text>
-          </View>
-          <View className="w-10 h-10 justify-center items-center">
-            <Setting height={30} width={30} color="#6366f1" />
           </View>
         </View>
       </View>
