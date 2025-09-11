@@ -14,13 +14,16 @@ import {
 } from "react-native";
 
 import { BackIcon } from "@/components/BackIcon";
-import { BKing } from "@/components/chess/black/BKing";
-import { WKing } from "@/components/chess/white/WKing";
+import { PieceRenderer } from "@/components/chess/PieceRenderer";
 import { Face } from "@/components/Face";
 import { Setting } from "@/components/icons/Setting";
 
 import ChessGame from "@/components/ChessGame";
 
+import {
+  DEFAULT_PIECE_THEME,
+  PIECE_THEMES,
+} from "@/constants/chessPieceThemes";
 import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
 
 export default function PlayWithAI() {
@@ -32,12 +35,15 @@ export default function PlayWithAI() {
   const [gameStarted, setGameStarted] = useState(false);
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currentPieceTheme, setCurrentPieceTheme] =
+    useState(DEFAULT_PIECE_THEME);
 
   const difficultyLevels = ["Beginner", "Intermediate", "Advanced", "Expert"];
 
   useEffect(() => {
     loadSavedSettings();
     checkGameSession();
+    loadPieceTheme();
   }, []);
 
   const loadSavedSettings = async () => {
@@ -55,6 +61,22 @@ export default function PlayWithAI() {
       }
     } catch (error) {
       console.error("Error loading saved settings:", error);
+    }
+  };
+
+  const loadPieceTheme = async () => {
+    try {
+      const savedPieceThemeId = await AsyncStorage.getItem(
+        CHESS_STORAGE_KEYS.PIECE_THEME
+      );
+      if (savedPieceThemeId) {
+        const theme =
+          PIECE_THEMES.find((t) => t.id === savedPieceThemeId) ||
+          DEFAULT_PIECE_THEME;
+        setCurrentPieceTheme(theme);
+      }
+    } catch (error) {
+      console.error("Error loading piece theme:", error);
     }
   };
 
@@ -252,7 +274,12 @@ export default function PlayWithAI() {
                   : "bg-gray-200 border-2 border-transparent"
               } rounded-full justify-center items-center shadow-sm`}
             >
-              <WKing height={30} width={30} color="#ffff" />
+              <PieceRenderer
+                type="k"
+                color="w"
+                theme={currentPieceTheme.version}
+                size={30}
+              />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => handleColorSelect("black")}
@@ -262,7 +289,12 @@ export default function PlayWithAI() {
                   : "bg-gray-200 border-2 border-transparent"
               } rounded-full justify-center items-center shadow-sm`}
             >
-              <BKing height={30} width={30} />
+              <PieceRenderer
+                type="k"
+                color="b"
+                theme={currentPieceTheme.version}
+                size={30}
+              />
             </TouchableOpacity>
           </View>
         </View>

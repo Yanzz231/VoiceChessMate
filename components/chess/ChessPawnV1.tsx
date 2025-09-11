@@ -1,7 +1,7 @@
 import React from "react";
 import Svg, { G, Path } from "react-native-svg";
 
-export const BPawn = ({ width = 192, height = 192, color = "#000000" }) => {
+export const PawnV1 = ({ width = 192, height = 192, color = "#000000" }) => {
   return (
     <Svg viewBox="0 0 237.73 292.27" width={width} height={height}>
       <G id="Layer_2">

@@ -1,7 +1,12 @@
+import { BackIcon } from "@/components/BackIcon";
+import { PieceRenderer } from "@/components/chess/PieceRenderer";
+import { Setting } from "@/components/icons/Setting";
+import { PIECE_THEMES, PieceTheme } from "@/constants/chessPieceThemes";
+import { CHESS_THEMES, ChessTheme } from "@/constants/chessThemes";
+import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useState } from "react";
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,74 +15,53 @@ import {
   View,
 } from "react-native";
 
-import { BackIcon } from "@/components/BackIcon";
-import {
-  CHESS_THEMES,
-  ChessTheme,
-  DEFAULT_THEME,
-} from "@/constants/chessThemes";
-import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
-
 interface ChessSettingsProps {
   onBack: () => void;
   currentTheme: ChessTheme;
   onThemeChange: (theme: ChessTheme) => void;
+  currentPieceTheme: PieceTheme;
+  onPieceThemeChange: (theme: PieceTheme) => void;
 }
 
 const ChessSettings: React.FC<ChessSettingsProps> = ({
   onBack,
   currentTheme,
   onThemeChange,
+  currentPieceTheme,
+  onPieceThemeChange,
 }) => {
-  const [selectedTheme, setSelectedTheme] = useState<ChessTheme>(currentTheme);
+  const [activeTab, setActiveTab] = useState<"board" | "pieces">("board");
 
-  const handleThemeSelect = async (theme: ChessTheme) => {
+  const handleBoardThemeSelect = async (theme: ChessTheme) => {
     try {
-      setSelectedTheme(theme);
       await AsyncStorage.setItem(CHESS_STORAGE_KEYS.THEME, theme.id);
       onThemeChange(theme);
     } catch (error) {
-      console.error("Error saving theme:", error);
-      Alert.alert("Error", "Failed to save theme selection");
+      console.error("Error saving board theme:", error);
     }
   };
 
-  const resetToDefault = async () => {
-    Alert.alert(
-      "Reset Theme",
-      "Are you sure you want to reset to the default theme?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: async () => {
-            await handleThemeSelect(DEFAULT_THEME);
-          },
-        },
-      ]
-    );
+  const handlePieceThemeSelect = async (theme: PieceTheme) => {
+    try {
+      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.PIECE_THEME, theme.id);
+      onPieceThemeChange(theme);
+    } catch (error) {
+      console.error("Error saving piece theme:", error);
+    }
   };
 
-  const renderThemePreview = (theme: ChessTheme) => {
-    const isSelected = selectedTheme.id === theme.id;
+  const renderBoardThemeOption = (theme: ChessTheme) => {
+    const isSelected = currentTheme.id === theme.id;
 
     return (
       <TouchableOpacity
         key={theme.id}
-        onPress={() => handleThemeSelect(theme)}
+        onPress={() => handleBoardThemeSelect(theme)}
         className={`mb-4 p-4 rounded-2xl border-2 ${
           isSelected
             ? "border-indigo-500 bg-indigo-50"
             : "border-gray-200 bg-white"
         }`}
-        style={{
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 3,
-        }}
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
@@ -88,8 +72,6 @@ const ChessSettings: React.FC<ChessSettingsProps> = ({
             >
               {theme.name}
             </Text>
-
-            {/* Chess board preview */}
             <View className="flex-row mb-3">
               {[0, 1, 2, 3].map((row) => (
                 <View key={row} className="flex-col">
@@ -98,40 +80,102 @@ const ChessSettings: React.FC<ChessSettingsProps> = ({
                     const backgroundColor = isLight
                       ? theme.lightSquare
                       : theme.darkSquare;
-
                     return (
                       <View
                         key={`${row}-${col}`}
-                        style={{
-                          width: 20,
-                          height: 20,
-                          backgroundColor,
-                        }}
+                        style={{ width: 20, height: 20, backgroundColor }}
                       />
                     );
                   })}
                 </View>
               ))}
             </View>
+          </View>
+          {isSelected && (
+            <View className="w-8 h-8 bg-indigo-500 rounded-full items-center justify-center ml-4">
+              <Text className="text-white font-bold text-lg">✓</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
-            <View className="flex-row items-center gap-3">
-              <View className="flex-row items-center gap-2">
-                <View
-                  className="w-4 h-4 rounded"
-                  style={{ backgroundColor: theme.lightSquare }}
+  const renderPieceThemeOption = (theme: PieceTheme) => {
+    const isSelected = currentPieceTheme.id === theme.id;
+
+    return (
+      <TouchableOpacity
+        key={theme.id}
+        onPress={() => handlePieceThemeSelect(theme)}
+        className={`mb-4 p-4 rounded-2xl border-2 ${
+          isSelected
+            ? "border-indigo-500 bg-indigo-50"
+            : "border-gray-200 bg-white"
+        }`}
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1">
+            <Text
+              className={`text-lg font-semibold mb-3 ${
+                isSelected ? "text-indigo-700" : "text-gray-800"
+              }`}
+            >
+              {theme.name}
+            </Text>
+            <View className="flex-row items-center gap-4">
+              <View className="items-center">
+                <PieceRenderer
+                  type="k"
+                  color="w"
+                  theme={theme.version}
+                  size={32}
                 />
-                <Text className="text-sm text-gray-600">Light</Text>
+                <Text className="text-xs text-gray-500 mt-1">White</Text>
               </View>
-              <View className="flex-row items-center gap-2">
-                <View
-                  className="w-4 h-4 rounded"
-                  style={{ backgroundColor: theme.darkSquare }}
+              <View className="items-center">
+                <PieceRenderer
+                  type="q"
+                  color="w"
+                  theme={theme.version}
+                  size={32}
                 />
-                <Text className="text-sm text-gray-600">Dark</Text>
+              </View>
+              <View className="items-center">
+                <PieceRenderer
+                  type="r"
+                  color="w"
+                  theme={theme.version}
+                  size={32}
+                />
+              </View>
+              <View className="items-center">
+                <PieceRenderer
+                  type="k"
+                  color="b"
+                  theme={theme.version}
+                  size={32}
+                />
+                <Text className="text-xs text-gray-500 mt-1">Black</Text>
+              </View>
+              <View className="items-center">
+                <PieceRenderer
+                  type="q"
+                  color="b"
+                  theme={theme.version}
+                  size={32}
+                />
+              </View>
+              <View className="items-center">
+                <PieceRenderer
+                  type="r"
+                  color="b"
+                  theme={theme.version}
+                  size={32}
+                />
               </View>
             </View>
           </View>
-
           {isSelected && (
             <View className="w-8 h-8 bg-indigo-500 rounded-full items-center justify-center ml-4">
               <Text className="text-white font-bold text-lg">✓</Text>
@@ -146,7 +190,6 @@ const ChessSettings: React.FC<ChessSettingsProps> = ({
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
 
-      {/* Header */}
       <View className="bg-white px-4 py-4 pt-14 shadow-sm">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
@@ -159,46 +202,63 @@ const ChessSettings: React.FC<ChessSettingsProps> = ({
             <Text className="text-lg font-semibold text-gray-800">
               Chess Settings
             </Text>
-            <Text className="text-sm text-gray-500">Customize your board</Text>
+            <Text className="text-sm text-gray-500">Customize your game</Text>
           </View>
-          <View className="w-10 h-10" />
+          <View className="w-10 h-10 justify-center items-center">
+            <Setting height={30} width={30} color="#6366f1" />
+          </View>
+        </View>
+      </View>
+
+      <View className="bg-white px-4 py-3 border-b border-gray-100">
+        <View className="flex-row">
+          <TouchableOpacity
+            onPress={() => setActiveTab("board")}
+            className={`flex-1 py-3 items-center rounded-lg mr-2 ${
+              activeTab === "board" ? "bg-indigo-100" : "bg-gray-100"
+            }`}
+          >
+            <Text
+              className={`font-medium ${
+                activeTab === "board" ? "text-indigo-700" : "text-gray-600"
+              }`}
+            >
+              Board Theme
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab("pieces")}
+            className={`flex-1 py-3 items-center rounded-lg ml-2 ${
+              activeTab === "pieces" ? "bg-indigo-100" : "bg-gray-100"
+            }`}
+          >
+            <Text
+              className={`font-medium ${
+                activeTab === "pieces" ? "text-indigo-700" : "text-gray-600"
+              }`}
+            >
+              Piece Style
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView className="flex-1 px-4 py-6">
-        {/* Current Theme Info */}
-        <View className="bg-white rounded-2xl p-4 mb-6 shadow-sm">
-          <Text className="text-lg font-semibold text-gray-800 mb-2">
-            Current Theme
-          </Text>
-          <Text className="text-base text-indigo-600 font-medium">
-            {selectedTheme.name}
-          </Text>
-        </View>
-
-        {/* Theme Selection */}
-        <View className="mb-6">
-          <Text className="text-lg font-semibold text-gray-800 mb-4">
-            Choose Board Theme
-          </Text>
-          {CHESS_THEMES.map((theme) => renderThemePreview(theme))}
-        </View>
-
-        <TouchableOpacity
-          onPress={resetToDefault}
-          className="bg-gray-100 rounded-2xl p-4 items-center"
-        >
-          <Text className="text-gray-700 font-medium">
-            Reset to Default Theme
-          </Text>
-        </TouchableOpacity>
-
-        <View className="mt-6 p-4 bg-blue-50 rounded-2xl">
-          <Text className="text-sm text-blue-800 text-center">
-            Your theme preference will be saved automatically and applied to all
-            future games.
-          </Text>
-        </View>
+        {activeTab === "board" ? (
+          <View>
+            <Text className="text-lg font-semibold text-gray-800 mb-4">
+              Choose Board Theme
+            </Text>
+            {CHESS_THEMES.map(renderBoardThemeOption)}
+          </View>
+        ) : (
+          <View>
+            <Text className="text-lg font-semibold text-gray-800 mb-4">
+              Choose Piece Style
+            </Text>
+            {PIECE_THEMES.map(renderPieceThemeOption)}
+          </View>
+        )}
         <View className="h-10" />
       </ScrollView>
     </SafeAreaView>

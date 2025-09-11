@@ -111,3 +111,5 @@ export const CHESS_THEMES: ChessTheme[] = [
 ];
 
 export const DEFAULT_THEME = CHESS_THEMES[0];
+
+

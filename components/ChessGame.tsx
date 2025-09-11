@@ -13,21 +13,9 @@ import {
   View,
 } from "react-native";
 
-import { BBishop } from "@/components/chess/black/BBishop";
-import { BKing } from "@/components/chess/black/BKing";
-import { BKnight } from "@/components/chess/black/BKnight";
-import { BPawn } from "@/components/chess/black/BPawn";
-import { BQueen } from "@/components/chess/black/BQueen";
-import { BRook } from "@/components/chess/black/BRook";
-import { WBishop } from "@/components/chess/white/WBishop";
-import { WKing } from "@/components/chess/white/WKing";
-import { WKnight } from "@/components/chess/white/WKnight";
-import { WPawn } from "@/components/chess/white/WPawn";
-import { WQueen } from "@/components/chess/white/WQueen";
-import { WRook } from "@/components/chess/white/WRook";
-
 import { BackIcon } from "@/components/BackIcon";
 import ChessSettings from "@/components/ChessSettings";
+import { PieceRenderer } from "@/components/chess/PieceRenderer";
 import { Setting } from "@/components/icons/Setting";
 import QuickThemeSelector from "./QuickThemeSelector";
 import { FlagIcon } from "./icons/FlagIcon";
@@ -36,6 +24,11 @@ import { Mic } from "./icons/Mic";
 import { OptionIcon } from "./icons/OptionIcon";
 import { UndoIcon } from "./icons/UndoIcon";
 
+import {
+  DEFAULT_PIECE_THEME,
+  PIECE_THEMES,
+  PieceTheme,
+} from "@/constants/chessPieceThemes";
 import {
   CHESS_THEMES,
   ChessTheme,
@@ -65,22 +58,6 @@ const { width } = Dimensions.get("window");
 const boardSize = width - 32;
 const squareSize = boardSize / 8;
 
-const pieceComponents = {
-  wp: WPawn,
-  wr: WRook,
-  wn: WKnight,
-  wb: WBishop,
-  wq: WQueen,
-  wk: WKing,
-  bp: BPawn,
-  br: BRook,
-  bn: BKnight,
-  bb: BBishop,
-  bq: BQueen,
-  bk: BKing,
-};
-
-type PieceType = keyof typeof pieceComponents;
 type PromotionPiece = "q" | "r" | "b" | "n";
 
 const CustomChessGame: React.FC<ChessGameProps> = ({
@@ -103,6 +80,8 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
   const [pendingPromotion, setPendingPromotion] =
     useState<PendingPromotion | null>(null);
   const [currentTheme, setCurrentTheme] = useState<ChessTheme>(DEFAULT_THEME);
+  const [currentPieceTheme, setCurrentPieceTheme] =
+    useState<PieceTheme>(DEFAULT_PIECE_THEME);
   const [showSettings, setShowSettings] = useState(false);
   const [showQuickThemeSelector, setShowQuickThemeSelector] = useState(false);
   const gameRef = useRef(game);
@@ -111,6 +90,7 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
     initializeGame();
     loadGameState();
     loadTheme();
+    loadPieceTheme();
   }, []);
 
   useEffect(() => {
@@ -162,8 +142,28 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
     }
   };
 
+  const loadPieceTheme = async () => {
+    try {
+      const savedPieceThemeId = await AsyncStorage.getItem(
+        CHESS_STORAGE_KEYS.PIECE_THEME
+      );
+      if (savedPieceThemeId) {
+        const theme =
+          PIECE_THEMES.find((t) => t.id === savedPieceThemeId) ||
+          DEFAULT_PIECE_THEME;
+        setCurrentPieceTheme(theme);
+      }
+    } catch (error) {
+      console.error("Error loading piece theme:", error);
+    }
+  };
+
   const handleThemeChange = (theme: ChessTheme) => {
     setCurrentTheme(theme);
+  };
+
+  const handlePieceThemeChange = (theme: PieceTheme) => {
+    setCurrentPieceTheme(theme);
   };
 
   const initializeGame = () => {
@@ -441,15 +441,18 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
   const renderPiece = (piece: any, square: string) => {
     if (!piece) return null;
 
-    const pieceKey = `${piece.color}${piece.type}` as PieceType;
-    const PieceComponent = pieceComponents[pieceKey];
-
-    if (!PieceComponent) return null;
-
-    const pieceSize = squareSize * 0.8;
+    let pieceSize = squareSize * 0.8;
+    if (currentPieceTheme.version === "v2") {
+      pieceSize = squareSize * 1.1;
+    }
 
     return (
-      <PieceComponent width={pieceSize} height={pieceSize} fillColor="none" />
+      <PieceRenderer
+        type={piece.type}
+        color={piece.color}
+        theme={currentPieceTheme.version}
+        size={pieceSize}
+      />
     );
   };
 
@@ -550,26 +553,21 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
   const renderPromotionModal = () => {
     if (!pendingPromotion) return null;
 
-    const isWhite = pendingPromotion.color === "w";
     const promotionPieces = [
       {
         type: "q",
-        component: isWhite ? WQueen : BQueen,
         name: "Queen",
       },
       {
         type: "r",
-        component: isWhite ? WRook : BRook,
         name: "Rook",
       },
       {
         type: "b",
-        component: isWhite ? WBishop : BBishop,
         name: "Bishop",
       },
       {
         type: "n",
-        component: isWhite ? WKnight : BKnight,
         name: "Knight",
       },
     ];
@@ -592,7 +590,6 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
 
             <View className="flex-row gap-4 justify-around items-center m-4">
               {promotionPieces.map((piece) => {
-                const PieceComponent = piece.component;
                 return (
                   <TouchableOpacity
                     key={piece.type}
@@ -603,7 +600,12 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
                     style={{ width: 80, height: 90 }}
                   >
                     <View className="w-12 h-12 justify-center items-center mb-2">
-                      <PieceComponent width={48} height={48} fillColor="none" />
+                      <PieceRenderer
+                        type={piece.type as any}
+                        color={pendingPromotion.color}
+                        theme={currentPieceTheme.version}
+                        size={48}
+                      />
                     </View>
                     <Text className="text-sm font-medium text-gray-700 text-center">
                       {piece.name}
@@ -628,13 +630,14 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
         onBack={() => setShowSettings(false)}
         currentTheme={currentTheme}
         onThemeChange={handleThemeChange}
+        currentPieceTheme={currentPieceTheme}
+        onPieceThemeChange={handlePieceThemeChange}
       />
     );
   }
 
   const currentPlayer = game.turn() === "w" ? "White" : "Black";
   const canUndo = currentStateIndex > 0;
-  const moveCount = game.history().length;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">

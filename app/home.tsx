@@ -2,9 +2,10 @@ import { HomeHeader } from "@/components/home/HomeHeader";
 import { HomeMenuList } from "@/components/home/HomeMenuList";
 import { useAuth } from "@/hooks/useAuth";
 import { useExitHandler } from "@/hooks/useExitHandler";
+import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import { SafeAreaView, StatusBar, View } from "react-native";
 
 export default function Home() {
@@ -15,13 +16,32 @@ export default function Home() {
     appName: "ChessMate",
   });
 
+  const { processVoiceCommand } = useVoiceNavigation({
+    onNavigationStart: (screen) => {
+      console.log(`Voice navigation to: ${screen}`);
+    },
+  });
+
+  const handleTranscriptComplete = useCallback(
+    async (result: any) => {
+      console.log("Transcript result:", result);
+
+      if (result?.text) {
+        const transcriptText = result.text.trim();
+        console.log(`Processing voice command: "${transcriptText}"`);
+        await processVoiceCommand(transcriptText);
+      } else {
+        console.warn("No text found in transcript result");
+      }
+    },
+    [processVoiceCommand]
+  );
+
   const { handleTouchStart, handleTouchEnd, cleanup } = useVoiceRecording({
     apiKey: "37c72e8e5dd344939db0183d6509ceec",
     language: "id",
-    longPressThreshold: 3000,
-    onTranscriptComplete: (result) => {
-      console.log("Transcript result:", result);
-    },
+    longPressThreshold: 1000,
+    onTranscriptComplete: handleTranscriptComplete,
   });
 
   useEffect(() => {

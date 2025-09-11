@@ -1,7 +1,7 @@
 import React from "react";
 import Svg, { G, Path, Polygon } from "react-native-svg";
 
-export const BKing = ({ width = 192, height = 192, color = "#000000" }) => {
+export const KingV1 = ({ width = 192, height = 192, color = "#000000" }) => {
   return (
     <Svg viewBox="0 0 384.66 388.26" width={width} height={height}>
       <G id="Layer_2">
