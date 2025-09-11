@@ -42,8 +42,7 @@ export const HomeMenuList: React.FC = () => {
       title: "Lesson",
       description: "Learn chess through voice-guided tutorials and exercises",
       onPress: () => {
-        // TODO: Implement lesson functionality
-        console.log("Lesson pressed");
+        router.push("/lesson");
       },
     },
     {

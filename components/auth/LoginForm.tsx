@@ -31,7 +31,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         <Text className="text-2xl font-bold text-gray-900">ChessMate</Text>
       </View>
 
-      {/* Rest of your code remains the same */}
       <Text className="text-lg font-semibold text-gray-900 leading-7 mb-4">
         Rasakan setiap langkah - mainkan catur dengan mudah, hanya menggunakan
         suara Anda

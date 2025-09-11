@@ -1,6 +1,7 @@
 import { useAssemblyAI } from "@/hooks/useAssemblyAI";
 import * as Haptics from "expo-haptics";
-import { useCallback, useRef, useState } from "react";
+import * as Speech from "expo-speech";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface UseVoiceRecordingOptions {
   apiKey: string;
@@ -48,9 +49,20 @@ export const useVoiceRecording = (options: UseVoiceRecordingOptions) => {
     },
     onTranscriptComplete: (result) => {
       setIsProcessing(false);
+
       onTranscriptComplete?.(result);
     },
   });
+
+  useEffect(() => {
+    if (isRecording) {
+      Speech.speak("Voice active", {
+        language: "en-US",
+        pitch: 1.0,
+        rate: 0.9,
+      });
+    }
+  }, [isRecording]);
 
   const handleTouchStart = useCallback(() => {
     if (isProcessing || isRecording || isTranscribing) {
@@ -72,8 +84,6 @@ export const useVoiceRecording = (options: UseVoiceRecordingOptions) => {
           setIsProcessing(false);
           isUserHolding.current = false;
         }
-      } else {
-        console.log("User released before threshold - not starting recording");
       }
     }, longPressThreshold);
   }, [
@@ -97,7 +107,12 @@ export const useVoiceRecording = (options: UseVoiceRecordingOptions) => {
       forceStopRef.current = true;
       try {
         await stopRecording();
-        console.log("Stop recording called successfully");
+
+        Speech.speak("Waiting for response", {
+          language: "en-US",
+          pitch: 1.0,
+          rate: 0.9,
+        });
       } catch (error) {
         console.error("Error stopping recording:", error);
       }

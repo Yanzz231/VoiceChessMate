@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import * as Speech from "expo-speech";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   SafeAreaView,
@@ -23,6 +24,8 @@ import {
   DEFAULT_THEME,
 } from "@/constants/chessThemes";
 import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
+import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
+import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -31,9 +34,76 @@ export default function SettingsPage() {
     useState<PieceTheme>(DEFAULT_PIECE_THEME);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { processVoiceCommand } = useVoiceNavigation({
+    onNavigationStart: (screen) => {
+      let navigationMessage = "";
+      switch (screen) {
+        case "play":
+          navigationMessage = "Opening game";
+          break;
+        case "scan":
+          navigationMessage = "Opening camera";
+          break;
+        case "lesson":
+          navigationMessage = "Opening lessons";
+          break;
+        case "analyze":
+          navigationMessage = "Opening analysis";
+          break;
+        case "setting":
+          navigationMessage = "Opening settings";
+          break;
+        default:
+          navigationMessage = "Starting navigation";
+      }
+
+      Speech.speak(navigationMessage, {
+        language: "en-US",
+        pitch: 1.0,
+        rate: 0.9,
+      });
+    },
+  });
+
+  const handleTranscriptComplete = useCallback(
+    async (result: any) => {
+      if (result?.text) {
+        const transcriptText = result.text.trim();
+
+        Speech.speak("Command received", {
+          language: "en-US",
+          pitch: 1.0,
+          rate: 0.9,
+        });
+
+        await processVoiceCommand(transcriptText);
+      } else {
+        Speech.speak("Command not understood", {
+          language: "en-US",
+          pitch: 1.0,
+          rate: 0.9,
+        });
+      }
+    },
+    [processVoiceCommand]
+  );
+
+  const { handleTouchStart, handleTouchEnd, cleanup } = useVoiceRecording({
+    apiKey: "37c72e8e5dd344939db0183d6509ceec",
+    language: "id",
+    longPressThreshold: 1000,
+    onTranscriptComplete: handleTranscriptComplete,
+  });
+
   useEffect(() => {
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, [cleanup]);
 
   const loadSettings = async () => {
     try {
@@ -93,6 +163,12 @@ export default function SettingsPage() {
           onPress: async () => {
             await handleThemeSelect(DEFAULT_THEME);
             await handlePieceThemeSelect(DEFAULT_PIECE_THEME);
+
+            Speech.speak("Themes reset to default", {
+              language: "en-US",
+              pitch: 1.0,
+              rate: 0.9,
+            });
           },
         },
       ]
@@ -113,6 +189,13 @@ export default function SettingsPage() {
               await AsyncStorage.clear();
               setCurrentTheme(DEFAULT_THEME);
               setCurrentPieceTheme(DEFAULT_PIECE_THEME);
+
+              Speech.speak("All data cleared", {
+                language: "en-US",
+                pitch: 1.0,
+                rate: 0.9,
+              });
+
               Alert.alert("Success", "All data has been cleared");
             } catch (error) {
               console.error("Error clearing data:", error);
@@ -315,85 +398,92 @@ export default function SettingsPage() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+    <View
+      className="flex-1 bg-gray-50"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
+      <SafeAreaView className="flex-1">
+        <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
 
-      <View className="bg-white px-4 py-4 pt-14 shadow-sm">
-        <View className="flex-row items-center justify-between">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="w-10 h-10 justify-center items-center"
-          >
-            <BackIcon height={30} width={30} />
-          </TouchableOpacity>
-          <View className="flex-1 items-center">
-            <Text className="text-lg font-semibold text-gray-800">
-              Settings
-            </Text>
-            <Text className="text-sm text-gray-500">
-              Customize your app experience
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView className="flex-1 px-4 py-6">
-        <View className="bg-white rounded-2xl p-4 mb-6 shadow-sm">
-          <Text className="text-lg font-semibold text-gray-800 mb-2">
-            Current Settings
-          </Text>
-          <View className="space-y-2">
-            <View className="mb-2">
-              <Text className="text-sm text-gray-500">Board Theme</Text>
-              <Text className="text-base text-indigo-600 font-medium">
-                {currentTheme.name}
+        <View className="bg-white px-4 py-4 pt-14 shadow-sm">
+          <View className="flex-row items-center justify-between">
+            <TouchableOpacity
+              onPress={() => router.back()}
+              className="w-10 h-10 justify-center items-center"
+            >
+              <BackIcon height={30} width={30} />
+            </TouchableOpacity>
+            <View className="flex-1 items-center">
+              <Text className="text-lg font-semibold text-gray-800">
+                Settings
               </Text>
-            </View>
-            <View>
-              <Text className="text-sm text-gray-500">Piece Style</Text>
-              <Text className="text-base text-indigo-600 font-medium">
-                {currentPieceTheme.name}
+              <Text className="text-sm text-gray-500">
+                Customize your app experience
               </Text>
             </View>
           </View>
         </View>
 
-        <View className="mb-6">
-          <Text className="text-lg font-semibold text-gray-800 mb-4">
-            Choose Chess Board Theme
-          </Text>
-          {CHESS_THEMES.map((theme) => renderThemePreview(theme))}
-        </View>
-
-        <View className="mb-6">
-          <Text className="text-lg font-semibold text-gray-800 mb-4">
-            Choose Piece Style
-          </Text>
-          {PIECE_THEMES.map((theme) => renderPieceThemePreview(theme))}
-        </View>
-
-        <View className="gap-4">
-          <TouchableOpacity
-            onPress={resetToDefault}
-            className="bg-gray-100 rounded-2xl p-4 items-center border border-gray-200"
-          >
-            <Text className="text-gray-700 font-medium">
-              Reset to Default Themes
+        <ScrollView className="flex-1 px-4 py-6">
+          <View className="bg-white rounded-2xl p-4 mb-6 shadow-sm">
+            <Text className="text-lg font-semibold text-gray-800 mb-2">
+              Current Settings
             </Text>
-          </TouchableOpacity>
+            <View className="space-y-2">
+              <View className="mb-2">
+                <Text className="text-sm text-gray-500">Board Theme</Text>
+                <Text className="text-base text-indigo-600 font-medium">
+                  {currentTheme.name}
+                </Text>
+              </View>
+              <View>
+                <Text className="text-sm text-gray-500">Piece Style</Text>
+                <Text className="text-base text-indigo-600 font-medium">
+                  {currentPieceTheme.name}
+                </Text>
+              </View>
+            </View>
+          </View>
 
-          <TouchableOpacity
-            onPress={clearAllData}
-            className="bg-red-50 rounded-2xl p-4 items-center border border-red-200"
-          >
-            <Text className="text-red-600 font-medium">Clear All Data</Text>
-            <Text className="text-red-500 text-sm mt-1">
-              This will delete all game history and settings
+          <View className="mb-6">
+            <Text className="text-lg font-semibold text-gray-800 mb-4">
+              Choose Chess Board Theme
             </Text>
-          </TouchableOpacity>
-        </View>
-        <View className="h-10" />
-      </ScrollView>
-    </SafeAreaView>
+            {CHESS_THEMES.map((theme) => renderThemePreview(theme))}
+          </View>
+
+          <View className="mb-6">
+            <Text className="text-lg font-semibold text-gray-800 mb-4">
+              Choose Piece Style
+            </Text>
+            {PIECE_THEMES.map((theme) => renderPieceThemePreview(theme))}
+          </View>
+
+          <View className="gap-4">
+            <TouchableOpacity
+              onPress={resetToDefault}
+              className="bg-gray-100 rounded-2xl p-4 items-center border border-gray-200"
+            >
+              <Text className="text-gray-700 font-medium">
+                Reset to Default Themes
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={clearAllData}
+              className="bg-red-50 rounded-2xl p-4 items-center border border-red-200"
+            >
+              <Text className="text-red-600 font-medium">Clear All Data</Text>
+              <Text className="text-red-500 text-sm mt-1">
+                This will delete all game history and settings
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View className="h-10" />
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }

@@ -5,6 +5,7 @@ import { useExitHandler } from "@/hooks/useExitHandler";
 import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Speech from "expo-speech";
 import React, { useCallback, useEffect } from "react";
 import { SafeAreaView, StatusBar, View } from "react-native";
 
@@ -18,20 +19,53 @@ export default function Home() {
 
   const { processVoiceCommand } = useVoiceNavigation({
     onNavigationStart: (screen) => {
-      console.log(`Voice navigation to: ${screen}`);
+      let navigationMessage = "";
+      switch (screen) {
+        case "play":
+          navigationMessage = "Opening game";
+          break;
+        case "scan":
+          navigationMessage = "Opening camera";
+          break;
+        case "lesson":
+          navigationMessage = "Opening lessons";
+          break;
+        case "analyze":
+          navigationMessage = "Opening analysis";
+          break;
+        case "setting":
+          navigationMessage = "Opening settings";
+          break;
+        default:
+          navigationMessage = "Starting navigation";
+      }
+
+      Speech.speak(navigationMessage, {
+        language: "en-US",
+        pitch: 1.0,
+        rate: 0.9,
+      });
     },
   });
 
   const handleTranscriptComplete = useCallback(
     async (result: any) => {
-      console.log("Transcript result:", result);
-
       if (result?.text) {
         const transcriptText = result.text.trim();
-        console.log(`Processing voice command: "${transcriptText}"`);
+
+        Speech.speak("Command received", {
+          language: "en-US",
+          pitch: 1.0,
+          rate: 0.9,
+        });
+
         await processVoiceCommand(transcriptText);
       } else {
-        console.warn("No text found in transcript result");
+        Speech.speak("Command not understood", {
+          language: "en-US",
+          pitch: 1.0,
+          rate: 0.9,
+        });
       }
     },
     [processVoiceCommand]

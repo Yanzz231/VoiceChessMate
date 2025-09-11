@@ -88,7 +88,6 @@ export const useVoiceNavigation = (options: UseVoiceNavigationOptions = {}) => {
           onNavigationError?.(`No destination determined`);
         }
       } catch (error) {
-        console.error("Voice command processing error:", error);
         onNavigationError?.(
           error instanceof Error ? error.message : "Unknown error"
         );
