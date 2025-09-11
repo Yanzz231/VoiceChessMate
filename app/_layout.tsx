@@ -17,7 +17,7 @@ export default function RootLayout() {
     const isPublicRoute = pathname === "/" || pathname === "/login";
 
     if (!isAuthenticated && !isPublicRoute) {
-      router.replace("/login");
+      router.replace("/home");
     } else if (isAuthenticated && isAuthRoute) {
       router.replace("/home");
     } else if (isAuthenticated && pathname === "/") {
