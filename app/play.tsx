@@ -25,10 +25,11 @@ import {
   PIECE_THEMES,
 } from "@/constants/chessPieceThemes";
 import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
+import { userService } from "@/services/userService";
 
 export default function PlayWithAI() {
   const router = useRouter();
-  const [selectedLevel, setSelectedLevel] = useState("Intermediate");
+  const [selectedLevel, setSelectedLevel] = useState("easy");
   const [selectedColor, setSelectedColor] = useState<"white" | "black">(
     "white"
   );
@@ -38,7 +39,7 @@ export default function PlayWithAI() {
   const [currentPieceTheme, setCurrentPieceTheme] =
     useState(DEFAULT_PIECE_THEME);
 
-  const difficultyLevels = ["Beginner", "Intermediate", "Advanced", "Expert"];
+  const difficultyLevels = ["easy", "medium", "hard"];
 
   useEffect(() => {
     loadSavedSettings();
@@ -112,6 +113,7 @@ export default function PlayWithAI() {
         CHESS_STORAGE_KEYS.DIFFICULTY,
         CHESS_STORAGE_KEYS.COLOR,
         CHESS_STORAGE_KEYS.GAME_FEN,
+        "game_id",
       ]);
     } catch (error) {
       console.error("Error clearing game session:", error);
@@ -121,17 +123,32 @@ export default function PlayWithAI() {
   const handleStart = async () => {
     setLoading(true);
     try {
+      const userId = await AsyncStorage.getItem("user_id");
+
+      if (!userId) {
+        Alert.alert("Error", "User not found. Please login again.");
+        setLoading(false);
+        return;
+      }
+
+      const gameId = await userService.createGame(userId);
+
+      if (!gameId) {
+        Alert.alert("Error", "Failed to create game. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      await AsyncStorage.setItem("game_id", gameId);
       await saveGameSettings();
-      console.log(
-        `Starting game with difficulty: ${selectedLevel}, playing as: ${selectedColor}`
-      );
 
       setTimeout(() => {
         setGameStarted(true);
         setLoading(false);
-      }, 2000);
+      }, 1000);
     } catch (error) {
       console.error("Error starting game:", error);
+      Alert.alert("Error", "Failed to start game. Please try again.");
       setLoading(false);
     }
   };
@@ -202,7 +219,7 @@ export default function PlayWithAI() {
         <StatusBar barStyle="dark-content" backgroundColor="#f3f4f6" />
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#6366F1" />
-          <Text className="text-lg text-gray-700 mt-4">Loading...</Text>
+          <Text className="text-lg text-gray-700 mt-4">Creating game...</Text>
         </View>
       </SafeAreaView>
     );
@@ -312,7 +329,7 @@ export default function PlayWithAI() {
           disabled={loading}
         >
           <Text className="text-white text-lg font-semibold text-center">
-            {loading ? "Starting..." : "Start Game"}
+            {loading ? "Creating game..." : "Start Game"}
           </Text>
         </TouchableOpacity>
       </View>

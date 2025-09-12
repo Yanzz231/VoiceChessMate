@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { userService } from "@/services/userService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
@@ -19,6 +20,8 @@ export const useAuthHandler = () => {
       try {
         setLoading(true);
 
+        let sessionData;
+
         if (url.includes("access_token")) {
           const hashParams = new URLSearchParams(url.split("#")[1]);
           const access_token = hashParams.get("access_token");
@@ -32,17 +35,15 @@ export const useAuthHandler = () => {
 
             if (error) {
               Alert.alert("Masuk Gagal", error.message);
-            } else if (data?.session) {
-              await AsyncStorage.setItem(
-                "supabase_session",
-                JSON.stringify(data.session)
-              );
+              return;
             }
+            sessionData = data.session;
           } else {
             Alert.alert(
               "Kesalahan Autentikasi",
               "Parameter callback tidak valid"
             );
+            return;
           }
         } else {
           const { data, error } = await supabase.auth.exchangeCodeForSession(
@@ -51,11 +52,21 @@ export const useAuthHandler = () => {
 
           if (error) {
             Alert.alert("Masuk Gagal", error.message);
-          } else if (data?.session) {
-            await AsyncStorage.setItem(
-              "supabase_session",
-              JSON.stringify(data.session)
-            );
+            return;
+          }
+          sessionData = data.session;
+        }
+
+        if (sessionData) {
+          await AsyncStorage.setItem(
+            "supabase_session",
+            JSON.stringify(sessionData)
+          );
+
+          const userId = sessionData.user?.id;
+          if (userId) {
+            await AsyncStorage.setItem("user_id", userId);
+            await userService.createUser(userId);
           }
         }
       } catch (err) {
@@ -82,9 +93,7 @@ export const useAuthHandler = () => {
         if (storedSession) {
           router.replace("/home");
         }
-      } catch (error) {
-        // Silent fail
-      }
+      } catch (error) {}
     };
 
     checkExistingSession();
