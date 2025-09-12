@@ -51,8 +51,7 @@ export const HomeMenuList: React.FC = () => {
       title: "Analyze",
       description: "Review performance and track improvement over time",
       onPress: () => {
-        // TODO: Implement analyze functionality
-        console.log("Analyze pressed");
+        router.push("/analyze");
       },
     },
     {

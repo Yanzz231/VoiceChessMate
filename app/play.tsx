@@ -284,7 +284,7 @@ export default function PlayWithAI() {
             className="bg-white rounded-full w-56 justify-center border border-gray-300 px-4 py-3 flex-row items-center mr-4 shadow-sm"
           >
             <Text className="text-gray-700 text-base mr-2">
-              {selectedLevel}
+              {selectedLevel[0].toUpperCase() + selectedLevel.slice(1)}
             </Text>
             <Text className="text-gray-400 text-xs">▼</Text>
           </TouchableOpacity>
@@ -369,7 +369,7 @@ export default function PlayWithAI() {
                         : "text-gray-700"
                     }`}
                   >
-                    {item}
+                    {item[0].toUpperCase() + item.slice(1)}
                   </Text>
                 </View>
               </TouchableOpacity>

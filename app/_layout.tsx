@@ -6,7 +6,7 @@ import { ActivityIndicator, View } from "react-native";
 import "../global.css";
 
 export default function RootLayout() {
-  const { loading, isAuthenticated, user } = useAuth();
+  const { loading, isAuthenticated } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
