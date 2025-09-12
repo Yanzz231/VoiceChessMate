@@ -55,12 +55,13 @@ interface PendingPromotion {
 }
 
 const { width } = Dimensions.get("window");
-const boardSize = width - 32;
+const boardSize = width - 64;
 const squareSize = boardSize / 8;
+const coordinateSize = 16;
 
 type PromotionPiece = "q" | "r" | "b" | "n";
 
-const CustomChessGame: React.FC<ChessGameProps> = ({
+const ChessGame: React.FC<ChessGameProps> = ({
   onQuit,
   onBack,
   playerColor,
@@ -520,6 +521,60 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
     );
   };
 
+  const renderFileLabels = () => {
+    const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const displayFiles = playerColor === "white" ? files : [...files].reverse();
+
+    return (
+      <View
+        style={{ flexDirection: "row", justifyContent: "center", marginTop: 4 }}
+      >
+        <View style={{ width: coordinateSize }} />
+        {displayFiles.map((file) => (
+          <View
+            key={file}
+            style={{
+              width: squareSize,
+              height: coordinateSize,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: "600", color: "#666" }}>
+              {file}
+            </Text>
+          </View>
+        ))}
+        <View style={{ width: coordinateSize }} />
+      </View>
+    );
+  };
+
+  const renderRankLabels = () => {
+    const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
+    const displayRanks = playerColor === "white" ? ranks : [...ranks].reverse();
+
+    return (
+      <View style={{ justifyContent: "center", marginRight: 4 }}>
+        {displayRanks.map((rank) => (
+          <View
+            key={rank}
+            style={{
+              width: coordinateSize,
+              height: squareSize,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: "600", color: "#666" }}>
+              {rank}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const renderBoard = () => {
     const board = game.board();
     const squares = [];
@@ -537,15 +592,27 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
     }
 
     return (
-      <View
-        style={{
-          width: boardSize,
-          height: boardSize,
-          flexDirection: "row",
-          flexWrap: "wrap",
-        }}
-      >
-        {squares}
+      <View style={{ alignItems: "center" }}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {renderRankLabels()}
+
+          <View
+            style={{
+              width: boardSize,
+              height: boardSize,
+              flexDirection: "row",
+              flexWrap: "wrap",
+            }}
+          >
+            {squares}
+          </View>
+
+          <View style={{ justifyContent: "center", marginLeft: 4 }}>
+            {renderRankLabels().props.children}
+          </View>
+        </View>
+
+        {renderFileLabels()}
       </View>
     );
   };
@@ -684,17 +751,7 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
       </View>
 
       <View className="flex-1 justify-center items-center px-4 py-4 bg-gray-100">
-        <View
-          style={{
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 8,
-          }}
-        >
-          {renderBoard()}
-        </View>
+        {renderBoard()}
       </View>
 
       <View className="bg-white px-4 py-6 border-t border-gray-100">
@@ -767,4 +824,4 @@ const CustomChessGame: React.FC<ChessGameProps> = ({
   );
 };
 
-export default CustomChessGame;
+export default ChessGame;
