@@ -308,7 +308,7 @@ export default function LessonsScreen() {
         <PieceRenderer
           type={lesson.pieceType}
           color={lesson.pieceColor}
-          theme={currentPieceTheme.version}
+          theme={"v2"}
           size={50}
         />
       );
