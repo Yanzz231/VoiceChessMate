@@ -31,6 +31,18 @@ interface MoveResponse {
   message?: string;
 }
 
+interface HintRequest {
+  fen: string;
+}
+
+interface HintResponse {
+  success: boolean;
+  data?: {
+    hint: string;
+  };
+  message?: string;
+}
+
 class UserService {
   async createUser(userId: string): Promise<CreateUserResponse> {
     try {
@@ -111,6 +123,30 @@ class UserService {
       };
     }
   }
+
+  async getHint(fen: string): Promise<HintResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/gameplay/hint`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ fen }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, ...data };
+    } catch (error) {
+      return {
+        success: false,
+        message: "Failed to get hint: " + error,
+      };
+    }
+  }
 }
 
 export const userService = new UserService();
@@ -118,6 +154,8 @@ export type {
   CreateUserRequest,
   CreateUserResponse,
   GameResponse,
+  HintRequest,
+  HintResponse,
   MoveRequest,
   MoveResponse,
 };

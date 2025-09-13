@@ -14,6 +14,7 @@ import * as Speech from "expo-speech";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -42,6 +43,7 @@ export default function LessonsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPieceTheme, setCurrentPieceTheme] =
     useState<PieceTheme>(DEFAULT_PIECE_THEME);
+  const [refreshing, setRefreshing] = useState(false);
   const [sections, setSections] = useState<Section[]>([
     {
       title: "Chess Basics",
@@ -51,7 +53,7 @@ export default function LessonsScreen() {
           id: "1",
           title: "Rook",
           subtitle: "How castle towers move",
-          progress: 95,
+          progress: 0,
           pieceType: "r",
           pieceColor: "b",
         },
@@ -59,7 +61,7 @@ export default function LessonsScreen() {
           id: "2",
           title: "Bishop",
           subtitle: "How bishops move",
-          progress: 90,
+          progress: 0,
           pieceType: "b",
           pieceColor: "b",
         },
@@ -67,7 +69,7 @@ export default function LessonsScreen() {
           id: "3",
           title: "Queen",
           subtitle: "How queens move",
-          progress: 90,
+          progress: 0,
           pieceType: "q",
           pieceColor: "b",
         },
@@ -75,7 +77,7 @@ export default function LessonsScreen() {
           id: "4",
           title: "King",
           subtitle: "How kings move",
-          progress: 80,
+          progress: 0,
           pieceType: "k",
           pieceColor: "b",
         },
@@ -83,7 +85,7 @@ export default function LessonsScreen() {
           id: "5",
           title: "Knight",
           subtitle: "How horses move",
-          progress: 80,
+          progress: 0,
           pieceType: "n",
           pieceColor: "b",
         },
@@ -91,7 +93,7 @@ export default function LessonsScreen() {
           id: "6",
           title: "Pawn",
           subtitle: "How pawns move",
-          progress: 80,
+          progress: 0,
           pieceType: "p",
           pieceColor: "b",
         },
@@ -105,42 +107,42 @@ export default function LessonsScreen() {
           id: "7",
           title: "Capture",
           subtitle: "Take enemy pieces",
-          progress: 80,
+          progress: 0,
           iconName: "flash",
         },
         {
           id: "8",
           title: "Protection",
           subtitle: "Keep your pieces safe",
-          progress: 80,
+          progress: 0,
           iconName: "shield",
         },
         {
           id: "9",
           title: "Combat",
           subtitle: "Attack and defend",
-          progress: 80,
+          progress: 0,
           iconName: "flame",
         },
         {
           id: "10",
           title: "Check Pt 1",
           subtitle: "Threaten the king",
-          progress: 80,
+          progress: 0,
           iconName: "warning",
         },
         {
           id: "11",
           title: "Stalemate",
           subtitle: "When no moves are legal",
-          progress: 80,
+          progress: 0,
           iconName: "lock-closed",
         },
         {
           id: "12",
           title: "Out of Check",
           subtitle: "Escape from check",
-          progress: 80,
+          progress: 0,
           iconName: "exit",
         },
       ],
@@ -208,24 +210,63 @@ export default function LessonsScreen() {
     onTranscriptComplete: handleTranscriptComplete,
   });
 
-  useEffect(() => {
-    const loadPieceTheme = async () => {
-      try {
-        const savedPieceThemeId = await AsyncStorage.getItem(
-          CHESS_STORAGE_KEYS.PIECE_THEME
-        );
-        if (savedPieceThemeId) {
-          const pieceTheme =
-            PIECE_THEMES.find((t) => t.id === savedPieceThemeId) ||
-            DEFAULT_PIECE_THEME;
-          setCurrentPieceTheme(pieceTheme);
-        }
-      } catch (error) {
-        console.error("Error loading piece theme:", error);
+  const loadPieceTheme = async () => {
+    try {
+      const savedPieceThemeId = await AsyncStorage.getItem(
+        CHESS_STORAGE_KEYS.PIECE_THEME
+      );
+      if (savedPieceThemeId) {
+        const pieceTheme =
+          PIECE_THEMES.find((t) => t.id === savedPieceThemeId) ||
+          DEFAULT_PIECE_THEME;
+        setCurrentPieceTheme(pieceTheme);
       }
-    };
+    } catch (error) {}
+  };
 
+  const loadLessonProgress = async () => {
+    try {
+      const updatedSections = await Promise.all(
+        sections.map(async (section) => ({
+          ...section,
+          lessons: await Promise.all(
+            section.lessons.map(async (lesson) => {
+              let completedCourses = 0;
+              for (let i = 1; i <= 5; i++) {
+                const courseKey = `course_${lesson.title.toLowerCase()}_${i}_completed`;
+                const completed = await AsyncStorage.getItem(courseKey);
+                if (completed === "true") {
+                  completedCourses++;
+                }
+              }
+              const progress = Math.round((completedCourses / 5) * 100);
+              return { ...lesson, progress };
+            })
+          ),
+        }))
+      );
+      setSections(updatedSections);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadPieceTheme(), loadLessonProgress()]);
+    } catch (error) {
+    } finally {
+      setRefreshing(false);
+    }
+  }, [sections]);
+
+  useEffect(() => {
     loadPieceTheme();
+  }, []);
+
+  useEffect(() => {
+    loadLessonProgress();
   }, []);
 
   useEffect(() => {
@@ -268,15 +309,22 @@ export default function LessonsScreen() {
           type={lesson.pieceType}
           color={lesson.pieceColor}
           theme={currentPieceTheme.version}
-          size={32}
+          size={50}
         />
       );
     } else if (lesson.iconName) {
       return (
-        <Ionicons name={lesson.iconName as any} size={28} color="#6366F1" />
+        <Ionicons name={lesson.iconName as any} size={28} color="#374151" />
       );
     }
     return null;
+  };
+
+  const handleLessonPress = (lesson: LessonData) => {
+    router.push({
+      pathname: "/lesson-detail/[lessonId]",
+      params: { lessonId: lesson.id },
+    });
   };
 
   const renderLessonGrid = (lessons: LessonData[]) => {
@@ -298,6 +346,7 @@ export default function LessonsScreen() {
               minHeight: 120,
             }}
             activeOpacity={0.7}
+            onPress={() => handleLessonPress(leftLesson)}
           >
             <View className="mb-3 h-8 w-8">{renderLessonIcon(leftLesson)}</View>
             <Text className="font-semibold text-sm text-gray-900 mb-1 leading-tight">
@@ -313,7 +362,7 @@ export default function LessonsScreen() {
                   className="h-1 rounded-full"
                   style={{
                     width: `${leftLesson.progress}%`,
-                    backgroundColor: "#6366F1",
+                    backgroundColor: "#374151",
                   }}
                 />
               </View>
@@ -335,6 +384,7 @@ export default function LessonsScreen() {
                 minHeight: 120,
               }}
               activeOpacity={0.7}
+              onPress={() => handleLessonPress(rightLesson)}
             >
               <View className="mb-3 h-8 w-8">
                 {renderLessonIcon(rightLesson)}
@@ -352,7 +402,7 @@ export default function LessonsScreen() {
                     className="h-1 rounded-full"
                     style={{
                       width: `${rightLesson.progress}%`,
-                      backgroundColor: "#6366F1",
+                      backgroundColor: "#374151",
                     }}
                   />
                 </View>
@@ -390,7 +440,22 @@ export default function LessonsScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
-          <Text className="text-xl font-bold text-gray-900">Lessons</Text>
+          <Text className="text-xl font-bold text-gray-900 flex-1">
+            Lessons
+          </Text>
+
+          <TouchableOpacity
+            onPress={onRefresh}
+            className="p-1 ml-2"
+            activeOpacity={0.7}
+            disabled={refreshing}
+          >
+            <Ionicons
+              name="refresh"
+              size={24}
+              color={refreshing ? "#9CA3AF" : "#374151"}
+            />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
 
@@ -411,6 +476,16 @@ export default function LessonsScreen() {
         className="flex-1 px-4"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#374151"]}
+            tintColor="#374151"
+            title={refreshing ? "Updating lessons..." : "Pull to refresh"}
+            titleColor="#6B7280"
+          />
+        }
       >
         {searchQuery.trim() !== "" && displaySections.length === 0 ? (
           <View className="flex-1 items-center justify-center py-20">

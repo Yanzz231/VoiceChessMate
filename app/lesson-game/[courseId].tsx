@@ -1,29 +1,27 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Chess } from "chess.js";
+import { router, useLocalSearchParams } from "expo-router";
 import * as Speech from "expo-speech";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   BackHandler,
   Dimensions,
   Modal,
   SafeAreaView,
-  StatusBar,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 
 import { BackIcon } from "@/components/BackIcon";
-import ChessSettings from "@/components/ChessSettings";
 import { PieceRenderer } from "@/components/chess/PieceRenderer";
+import { FlagIcon } from "@/components/icons/FlagIcon";
+import { HintIcon } from "@/components/icons/HintIcon";
+import { Mic } from "@/components/icons/Mic";
 import { Setting } from "@/components/icons/Setting";
-import QuickThemeSelector from "./QuickThemeSelector";
-import { FlagIcon } from "./icons/FlagIcon";
-import { HintIcon } from "./icons/HintIcon";
-import { Mic } from "./icons/Mic";
-import { OptionIcon } from "./icons/OptionIcon";
-import { UndoIcon } from "./icons/UndoIcon";
+import { UndoIcon } from "@/components/icons/UndoIcon";
 
 import {
   DEFAULT_PIECE_THEME,
@@ -39,13 +37,6 @@ import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
 import { useVoiceChessMove } from "@/hooks/useVoiceChessMove";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 import { userService } from "@/services/userService";
-
-interface ChessGameProps {
-  onQuit: () => void;
-  onBack: () => void;
-  playerColor: "white" | "black";
-  initialFEN?: string;
-}
 
 interface GameState {
   fen: string;
@@ -68,20 +59,25 @@ const coordinateSize = 16;
 
 type PromotionPiece = "q" | "r" | "b" | "n";
 
-const ChessGame: React.FC<ChessGameProps> = ({
-  onQuit,
-  onBack,
-  playerColor,
-  initialFEN,
-}) => {
-  const [game, setGame] = useState(() =>
-    initialFEN ? new Chess(initialFEN) : new Chess()
+export default function LessonGameScreen() {
+  const { courseId, fen, objective, title } = useLocalSearchParams<{
+    courseId: string;
+    fen: string;
+    objective: string;
+    title: string;
+  }>();
+
+  const [game, setGame] = useState(
+    () =>
+      new Chess(
+        fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+      )
   );
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<string[]>([]);
   const [gameStates, setGameStates] = useState<GameState[]>([]);
   const [gameStatus, setGameStatus] = useState<
-    "playing" | "checkmate" | "stalemate" | "draw"
+    "playing" | "completed" | "checkmate" | "stalemate" | "draw"
   >("playing");
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(
     null
@@ -92,17 +88,10 @@ const ChessGame: React.FC<ChessGameProps> = ({
   const [currentTheme, setCurrentTheme] = useState<ChessTheme>(DEFAULT_THEME);
   const [currentPieceTheme, setCurrentPieceTheme] =
     useState<PieceTheme>(DEFAULT_PIECE_THEME);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showQuickThemeSelector, setShowQuickThemeSelector] = useState(false);
   const [isWaitingForBot, setIsWaitingForBot] = useState(false);
-  const [difficulty, setDifficulty] = useState("easy");
+  const [difficulty] = useState("medium");
   const [loading, setLoading] = useState(false);
-  const [showGameOverModal, setShowGameOverModal] = useState(false);
-  const [gameOverData, setGameOverData] = useState<{
-    type: "checkmate" | "stalemate" | "draw";
-    winner?: string;
-    message: string;
-  } | null>(null);
+  const [showCompletedModal, setShowCompletedModal] = useState(false);
   const gameRef = useRef(game);
 
   const handleVoiceMoveComplete = useCallback((move: any, newGame: Chess) => {
@@ -145,10 +134,8 @@ const ChessGame: React.FC<ChessGameProps> = ({
 
   useEffect(() => {
     initializeGame();
-    loadGameState();
     loadTheme();
     loadPieceTheme();
-    loadDifficulty();
   }, []);
 
   useEffect(() => {
@@ -159,37 +146,12 @@ const ChessGame: React.FC<ChessGameProps> = ({
 
   useEffect(() => {
     gameRef.current = game;
-    saveGameState();
     checkGameStatus();
-  }, [game, gameStates]);
+  }, [game]);
 
   useEffect(() => {
-    const currentPlayerColor = playerColor === "white" ? "w" : "b";
-    const gameTurn = game.turn();
-    const isBotTurn = gameTurn !== currentPlayerColor;
-
-    if (initialFEN && gameStates.length === 1 && game.history().length > 0) {
-      return;
-    }
-
-    if (
-      playerColor === "black" &&
-      gameStates.length === 1 &&
-      game.history().length === 0 &&
-      !initialFEN
-    ) {
-      setTimeout(() => {
-        makeBotMove();
-      }, 1000);
-    }
-  }, [gameStates.length, playerColor, game, initialFEN]);
-
-  useEffect(() => {
-    const currentPlayerColor = playerColor === "white" ? "w" : "b";
+    const currentPlayerColor = "w";
     const isBotTurn = game.turn() !== currentPlayerColor;
-
-    console.log(initialFEN && !isProcessingMove);
-    if (initialFEN && isProcessingMove) return;
 
     if (
       isBotTurn &&
@@ -202,40 +164,28 @@ const ChessGame: React.FC<ChessGameProps> = ({
         makeBotMove();
       }, 1000);
     }
-  }, [
-    game,
-    gameStatus,
-    isWaitingForBot,
-    isProcessingMove,
-    playerColor,
-    gameStates.length,
-  ]);
+  }, [game, gameStatus, isWaitingForBot, isProcessingMove, gameStates.length]);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        if (
-          showSettings ||
-          showQuickThemeSelector ||
-          showPromotionModal ||
-          showGameOverModal
-        ) {
+        if (showPromotionModal || showCompletedModal) {
           return false;
         }
 
         Alert.alert(
-          "Quit Game",
-          "Are you sure you want to quit? Your game progress will be lost.",
+          "Leave Course",
+          "Are you sure you want to leave? Your progress will be lost.",
           [
             {
               text: "Cancel",
               style: "cancel",
             },
             {
-              text: "Quit",
+              text: "Leave",
               style: "destructive",
-              onPress: onBack,
+              onPress: () => router.back(),
             },
           ]
         );
@@ -244,13 +194,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
     );
 
     return () => backHandler.remove();
-  }, [
-    showSettings,
-    showQuickThemeSelector,
-    showPromotionModal,
-    showGameOverModal,
-    onBack,
-  ]);
+  }, [showPromotionModal, showCompletedModal]);
 
   const loadTheme = async () => {
     try {
@@ -260,7 +204,9 @@ const ChessGame: React.FC<ChessGameProps> = ({
           CHESS_THEMES.find((t) => t.id === savedThemeId) || DEFAULT_THEME;
         setCurrentTheme(theme);
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("Error loading theme:", error);
+    }
   };
 
   const loadPieceTheme = async () => {
@@ -274,79 +220,24 @@ const ChessGame: React.FC<ChessGameProps> = ({
           DEFAULT_PIECE_THEME;
         setCurrentPieceTheme(theme);
       }
-    } catch (error) {}
-  };
-
-  const loadDifficulty = async () => {
-    try {
-      const savedDifficulty = await AsyncStorage.getItem(
-        CHESS_STORAGE_KEYS.DIFFICULTY
-      );
-      if (savedDifficulty) {
-        setDifficulty(savedDifficulty);
-      }
-    } catch (error) {}
-  };
-
-  const handleThemeChange = (theme: ChessTheme) => {
-    setCurrentTheme(theme);
-  };
-
-  const handlePieceThemeChange = (theme: PieceTheme) => {
-    setCurrentPieceTheme(theme);
+    } catch (error) {
+      console.error("Error loading piece theme:", error);
+    }
   };
 
   const initializeGame = () => {
-    const newGame = initialFEN ? new Chess(initialFEN) : new Chess();
+    const newGame = new Chess(
+      fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    );
     setGame(newGame);
     const initialState: GameState = {
       fen: newGame.fen(),
-      moveHistory: newGame.history(),
+      moveHistory: [],
       timestamp: Date.now(),
-      moveNumber: newGame.history().length,
+      moveNumber: 0,
       turn: newGame.turn(),
     };
     setGameStates([initialState]);
-  };
-
-  const loadGameState = async (): Promise<boolean> => {
-    if (initialFEN) {
-      return false;
-    }
-    try {
-      const savedStates = await AsyncStorage.getItem(
-        CHESS_STORAGE_KEYS.GAME_STATES
-      );
-
-      if (savedStates) {
-        const states = JSON.parse(savedStates);
-        setGameStates(states);
-
-        const lastState = states[states.length - 1];
-        if (lastState) {
-          const newGame = new Chess(lastState.fen);
-          setGame(newGame);
-        }
-        return true;
-      }
-      return false;
-    } catch (error) {
-      return false;
-    }
-  };
-
-  const saveGameState = async () => {
-    if (initialFEN) {
-      return;
-    }
-    try {
-      if (gameStates.length > 0) {
-        await AsyncStorage.setItem(
-          CHESS_STORAGE_KEYS.GAME_STATES,
-          JSON.stringify(gameStates)
-        );
-      }
-    } catch (error) {}
   };
 
   const addGameState = (newGame: Chess) => {
@@ -380,48 +271,26 @@ const ChessGame: React.FC<ChessGameProps> = ({
     try {
       setIsWaitingForBot(true);
 
-      if (initialFEN) {
-        const moves = game.moves({ verbose: true });
-        if (moves.length > 0) {
-          const randomMove = moves[Math.floor(Math.random() * moves.length)];
-          const move = game.move(randomMove);
-          if (move) {
-            setLastMove({ from: move.from, to: move.to });
-            const newGame = new Chess(game.fen());
-            setGame(newGame);
-            addGameState(newGame);
-          }
-        }
-        return;
-      }
-
       const gameId = await AsyncStorage.getItem("game_id");
       if (!gameId) {
-        const moves = game.moves({ verbose: true });
-        if (moves.length > 0) {
-          const randomMove = moves[Math.floor(Math.random() * moves.length)];
-          const move = game.move(randomMove);
-          if (move) {
-            setLastMove({ from: move.from, to: move.to });
-            const newGame = new Chess(game.fen());
-            setGame(newGame);
-            addGameState(newGame);
+        const userId = await AsyncStorage.getItem("user_id");
+        if (userId) {
+          const newGameId = await userService.createGame(userId);
+          if (newGameId) {
+            await AsyncStorage.setItem("game_id", newGameId);
           }
         }
-        return;
       }
 
       const lastMoveHistory = game.history({ verbose: true });
       const lastMove = lastMoveHistory[lastMoveHistory.length - 1];
       const moveString = lastMove ? `${lastMove.from}${lastMove.to}` : "";
 
-      const botLevel = mapDifficultyToBotLevel(difficulty);
-
       const response = await userService.makeMove(
-        gameId,
+        gameId || "lesson-game",
         moveString,
         game.fen(),
-        botLevel
+        "easy"
       );
 
       if (response.success && response.data) {
@@ -436,30 +305,10 @@ const ChessGame: React.FC<ChessGameProps> = ({
           setLastMove({ from, to });
         }
       } else {
-        const moves = game.moves({ verbose: true });
-        if (moves.length > 0) {
-          const randomMove = moves[Math.floor(Math.random() * moves.length)];
-          const move = game.move(randomMove);
-          if (move) {
-            setLastMove({ from: move.from, to: move.to });
-            const newGame = new Chess(game.fen());
-            setGame(newGame);
-            addGameState(newGame);
-          }
-        }
+        throw new Error(response.message || "Bot move failed");
       }
     } catch (error) {
-      const moves = game.moves({ verbose: true });
-      if (moves.length > 0) {
-        const randomMove = moves[Math.floor(Math.random() * moves.length)];
-        const move = game.move(randomMove);
-        if (move) {
-          setLastMove({ from: move.from, to: move.to });
-          const newGame = new Chess(game.fen());
-          setGame(newGame);
-          addGameState(newGame);
-        }
-      }
+      console.error("Bot move error:", error);
     } finally {
       setIsWaitingForBot(false);
     }
@@ -468,45 +317,32 @@ const ChessGame: React.FC<ChessGameProps> = ({
   const checkGameStatus = () => {
     if (game.isCheckmate()) {
       setGameStatus("checkmate");
-      handleGameEnd("checkmate");
+      handleCourseComplete();
     } else if (game.isStalemate()) {
       setGameStatus("stalemate");
-      handleGameEnd("stalemate");
+      handleCourseComplete();
     } else if (game.isDraw()) {
       setGameStatus("draw");
-      handleGameEnd("draw");
+      handleCourseComplete();
     } else {
       setGameStatus("playing");
     }
   };
 
-  const handleGameEnd = (status: string) => {
-    let message = "";
-    let winner = "";
-    const currentWinner = game.turn() === "w" ? "Black" : "White";
+  const handleCourseComplete = async () => {
+    try {
+      await AsyncStorage.setItem(`course_${courseId}_completed`, "true");
+      await AsyncStorage.removeItem("lesson_session");
+      await AsyncStorage.removeItem("current_course_id");
+      await AsyncStorage.removeItem("current_lesson_id");
+      await AsyncStorage.removeItem("lesson_game_id");
 
-    switch (status) {
-      case "checkmate":
-        message = `${currentWinner} wins by checkmate!`;
-        winner = currentWinner;
-        break;
-      case "stalemate":
-        message = "Game ended in stalemate!";
-        break;
-      case "draw":
-        message = "Game ended in a draw!";
-        break;
+      setTimeout(() => {
+        setShowCompletedModal(true);
+      }, 1000);
+    } catch (error) {
+      console.error("Error saving course completion:", error);
     }
-
-    setGameOverData({
-      type: status as "checkmate" | "stalemate" | "draw",
-      winner,
-      message,
-    });
-
-    setTimeout(() => {
-      setShowGameOverModal(true);
-    }, 1000);
   };
 
   const findKingSquare = (color: "w" | "b"): string | null => {
@@ -536,7 +372,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
   const handleSquarePress = (square: string) => {
     if (gameStatus !== "playing" || isWaitingForBot || isProcessingMove) return;
 
-    const currentPlayerColor = playerColor === "white" ? "w" : "b";
+    const currentPlayerColor = "w";
     if (game.turn() !== currentPlayerColor) return;
 
     if (selectedSquare === null) {
@@ -575,12 +411,10 @@ const ChessGame: React.FC<ChessGameProps> = ({
           const newGame = new Chess(game.fen());
           setGame(newGame);
           addGameState(newGame);
-
-          setTimeout(() => {
-            makeBotMove();
-          }, 500);
         }
-      } catch (error) {}
+      } catch (error) {
+        console.log("Invalid move:", error);
+      }
 
       setSelectedSquare(null);
       setPossibleMoves([]);
@@ -602,12 +436,10 @@ const ChessGame: React.FC<ChessGameProps> = ({
         const newGame = new Chess(game.fen());
         setGame(newGame);
         addGameState(newGame);
-
-        setTimeout(() => {
-          makeBotMove();
-        }, 500);
       }
-    } catch (error) {}
+    } catch (error) {
+      console.log("Invalid promotion:", error);
+    }
 
     setShowPromotionModal(false);
     setPendingPromotion(null);
@@ -619,7 +451,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
       return;
     }
 
-    const currentPlayerColor = playerColor === "white" ? "w" : "b";
+    const currentPlayerColor = "w";
 
     let targetStateIndex = -1;
 
@@ -648,98 +480,10 @@ const ChessGame: React.FC<ChessGameProps> = ({
     setLastMove(null);
   };
 
-  const handleNewGame = async () => {
-    try {
-      setLoading(true);
-
-      await AsyncStorage.multiRemove([
-        CHESS_STORAGE_KEYS.GAME_STATES,
-        CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX,
-        CHESS_STORAGE_KEYS.GAME_SESSION,
-        CHESS_STORAGE_KEYS.DIFFICULTY,
-        CHESS_STORAGE_KEYS.COLOR,
-        CHESS_STORAGE_KEYS.GAME_FEN,
-        "game_id",
-      ]);
-
-      const userId = await AsyncStorage.getItem("user_id");
-      if (!userId) {
-        Alert.alert("Error", "User not found. Please login again.");
-        return;
-      }
-
-      const gameId = await userService.createGame(userId);
-      if (!gameId) {
-        Alert.alert("Error", "Failed to create new game. Please try again.");
-        return;
-      }
-
-      await AsyncStorage.setItem("game_id", gameId);
-      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.DIFFICULTY, difficulty);
-      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.COLOR, playerColor);
-      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.GAME_SESSION, "active");
-
-      const newGame = new Chess();
-      setGame(newGame);
-      setGameStatus("playing");
-      setSelectedSquare(null);
-      setPossibleMoves([]);
-      setLastMove(null);
-      setIsWaitingForBot(false);
-      setShowGameOverModal(false);
-      setGameOverData(null);
-
-      const initialState: GameState = {
-        fen: newGame.fen(),
-        moveHistory: [],
-        timestamp: Date.now(),
-        moveNumber: 0,
-        turn: "w",
-      };
-      setGameStates([initialState]);
-
-      if (playerColor === "black") {
-        setTimeout(() => {
-          makeBotMove();
-        }, 1000);
-      }
-    } catch (error) {
-      Alert.alert("Error", "Failed to start new game. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOption = () => {
-    Alert.alert("Game Options", "Choose an option", [
-      { text: "New Game", onPress: handleNewGame },
-      { text: "Change Theme", onPress: () => setShowQuickThemeSelector(true) },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  };
-
-  const handleSettingsPress = () => {
-    Alert.alert(
-      "Open Settings",
-      "Opening settings might affect your current game progress. Are you sure you want to continue?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Yes, Open Settings",
-          style: "default",
-          onPress: () => setShowSettings(true),
-        },
-      ]
-    );
-  };
-
   const handleHint = async () => {
     if (gameStatus !== "playing" || isWaitingForBot || isProcessingMove) return;
 
-    const currentPlayerColor = playerColor === "white" ? "w" : "b";
+    const currentPlayerColor = "w";
     if (game.turn() !== currentPlayerColor) {
       Alert.alert("Hint", "It's not your turn yet!");
       return;
@@ -784,7 +528,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
     }
   };
 
-  const renderPiece = (piece: any, square: string) => {
+  const renderPiece = (piece: any) => {
     if (!piece) return null;
 
     let pieceSize = squareSize * 0.8;
@@ -814,6 +558,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
     const isLastMoveSquare =
       lastMove && (lastMove.from === square || lastMove.to === square);
 
+    const currentPlayerColor = "w";
     const kingSquare = findKingSquare(game.turn());
     const isKingInCheck =
       game.inCheck() &&
@@ -849,7 +594,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
         onPress={() => handleSquarePress(square)}
         disabled={isWaitingForBot || isProcessingMove}
       >
-        {renderPiece(piece, square)}
+        {renderPiece(piece)}
 
         {isPossibleMove && !piece && (
           <View
@@ -894,7 +639,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
 
   const renderFileLabels = () => {
     const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
-    const displayFiles = playerColor === "white" ? files : [...files].reverse();
+    const displayFiles = files;
 
     return (
       <View
@@ -923,7 +668,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
 
   const renderRankLabels = () => {
     const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
-    const displayRanks = playerColor === "white" ? ranks : [...ranks].reverse();
+    const displayRanks = ranks;
 
     return (
       <View style={{ justifyContent: "center", marginRight: 4 }}>
@@ -952,8 +697,8 @@ const ChessGame: React.FC<ChessGameProps> = ({
 
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
-        const actualRow = playerColor === "white" ? row : 7 - row;
-        const actualCol = playerColor === "white" ? col : 7 - col;
+        const actualRow = row;
+        const actualCol = col;
 
         const piece = board[actualRow][actualCol];
         const square = String.fromCharCode(97 + actualCol) + (8 - actualRow);
@@ -988,12 +733,10 @@ const ChessGame: React.FC<ChessGameProps> = ({
     );
   };
 
-  const renderGameOverModal = () => {
-    if (!showGameOverModal || !gameOverData) return null;
-
+  const renderCompletedModal = () => {
     return (
       <Modal
-        visible={showGameOverModal}
+        visible={showCompletedModal}
         transparent={true}
         animationType="fade"
         onRequestClose={() => {}}
@@ -1002,46 +745,23 @@ const ChessGame: React.FC<ChessGameProps> = ({
           <View className="bg-white rounded-3xl mx-6 p-8 shadow-2xl max-w-sm w-full">
             <View className="items-center mb-6">
               <Text className="text-2xl font-bold text-gray-900 text-center mb-2">
-                {gameOverData.type === "checkmate"
-                  ? "Game Over!"
-                  : "Game Ended"}
+                Course Complete!
               </Text>
-
               <Text className="text-lg text-gray-700 text-center leading-relaxed">
-                {gameOverData.message}
+                You have successfully completed "{title}"
               </Text>
-
-              {gameOverData.winner && (
-                <Text className="text-base text-green-600 font-medium mt-2">
-                  Congratulations!
-                </Text>
-              )}
             </View>
 
             <View className="gap-3">
               <TouchableOpacity
                 onPress={() => {
-                  setShowGameOverModal(false);
-                  handleNewGame();
+                  setShowCompletedModal(false);
+                  router.back();
                 }}
-                className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
-                disabled={loading}
-                style={{ opacity: loading ? 0.6 : 1 }}
+                className="bg-gray-900 py-4 rounded-2xl shadow-lg active:bg-gray-800"
               >
                 <Text className="text-white text-lg font-semibold text-center">
-                  {loading ? "Creating new game..." : "New Game"}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  setShowGameOverModal(false);
-                  onBack();
-                }}
-                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
-              >
-                <Text className="text-gray-700 text-lg font-medium text-center">
-                  Back to Home
+                  Continue Learning
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1055,22 +775,10 @@ const ChessGame: React.FC<ChessGameProps> = ({
     if (!pendingPromotion) return null;
 
     const promotionPieces = [
-      {
-        type: "q",
-        name: "Queen",
-      },
-      {
-        type: "r",
-        name: "Rook",
-      },
-      {
-        type: "b",
-        name: "Bishop",
-      },
-      {
-        type: "n",
-        name: "Knight",
-      },
+      { type: "q", name: "Queen" },
+      { type: "r", name: "Rook" },
+      { type: "b", name: "Bishop" },
+      { type: "n", name: "Knight" },
     ];
 
     return (
@@ -1097,7 +805,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
                     onPress={() =>
                       handlePromotion(piece.type as PromotionPiece)
                     }
-                    className="items-center p-3 rounded-2xl bg-gray-50 border-2 border-gray-200  active:border-indigo-300"
+                    className="items-center p-3 rounded-2xl bg-gray-50 border-2 border-gray-200 active:border-indigo-300"
                     style={{ width: 80, height: 90 }}
                   >
                     <View className="w-12 h-12 justify-center items-center mb-2">
@@ -1125,20 +833,8 @@ const ChessGame: React.FC<ChessGameProps> = ({
     );
   };
 
-  if (showSettings) {
-    return (
-      <ChessSettings
-        onBack={() => setShowSettings(false)}
-        currentTheme={currentTheme}
-        onThemeChange={handleThemeChange}
-        currentPieceTheme={currentPieceTheme}
-        onPieceThemeChange={handlePieceThemeChange}
-      />
-    );
-  }
-
   const currentPlayer = game.turn() === "w" ? "White" : "Black";
-  const currentPlayerColor = playerColor === "white" ? "w" : "b";
+  const currentPlayerColor = "w";
 
   const canUndo = (() => {
     if (
@@ -1164,20 +860,18 @@ const ChessGame: React.FC<ChessGameProps> = ({
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+      <StatusBar backgroundColor="#f9fafb" />
 
       <View className="bg-white px-4 py-4 pt-14 shadow-sm">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
-            onPress={onBack}
+            onPress={() => router.back()}
             className="w-10 h-10 justify-center items-center"
           >
             <BackIcon height={30} width={30} />
           </TouchableOpacity>
           <View className="flex-1 items-center">
-            <Text className="text-lg font-semibold text-gray-800">
-              Chess Game
-            </Text>
+            <Text className="text-lg font-semibold text-gray-800">{title}</Text>
             <Text className="text-sm text-gray-500">
               {isWaitingForBot
                 ? "Bot thinking..."
@@ -1187,10 +881,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
               • {currentTheme.name}
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => handleSettingsPress()}
-            className="w-10 h-10 justify-center items-center"
-          >
+          <TouchableOpacity className="w-10 h-10 justify-center items-center">
             <Setting height={30} width={30} color="#000" />
           </TouchableOpacity>
         </View>
@@ -1212,6 +903,9 @@ const ChessGame: React.FC<ChessGameProps> = ({
             {Math.ceil(gameStates.length / 2)}
           </Text>
         </View>
+        <Text className="text-base font-medium text-gray-700 mt-2">
+          Objective: {objective}
+        </Text>
         {game.inCheck() && gameStatus === "playing" && (
           <Text className="text-red-600 font-medium mt-1">Check!</Text>
         )}
@@ -1224,28 +918,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
       <View className="bg-white px-4 py-6 border-t border-gray-100">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
-            onPress={handleOption}
-            className="items-center flex-1"
-            disabled={isVoiceDisabled}
-          >
-            <View
-              className={`w-12 h-12 items-center justify-center mb-2 ${
-                isVoiceDisabled ? "opacity-30" : ""
-              }`}
-            >
-              <OptionIcon width={30} height={30} />
-            </View>
-            <Text
-              className={`text-sm font-medium ${
-                isVoiceDisabled ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              Option
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={onQuit}
+            onPress={() => router.back()}
             className="items-center flex-1"
             disabled={isVoiceDisabled}
           >
@@ -1347,17 +1020,8 @@ const ChessGame: React.FC<ChessGameProps> = ({
         </View>
       </View>
 
-      {renderGameOverModal()}
+      {renderCompletedModal()}
       {renderPromotionModal()}
-
-      <QuickThemeSelector
-        visible={showQuickThemeSelector}
-        onClose={() => setShowQuickThemeSelector(false)}
-        currentTheme={currentTheme}
-        onThemeChange={handleThemeChange}
-      />
     </SafeAreaView>
   );
-};
-
-export default ChessGame;
+}
