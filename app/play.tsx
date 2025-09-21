@@ -61,7 +61,7 @@ export default function PlayWithAI() {
         setSelectedColor(savedColor as "white" | "black");
       }
     } catch (error) {
-      console.error("Error loading saved settings:", error);
+      // console.error("Error loading saved settings:", error);
     }
   };
 
@@ -77,7 +77,7 @@ export default function PlayWithAI() {
         setCurrentPieceTheme(theme);
       }
     } catch (error) {
-      console.error("Error loading piece theme:", error);
+      // console.error("Error loading piece theme:", error);
     }
   };
 
@@ -90,7 +90,7 @@ export default function PlayWithAI() {
         setGameStarted(true);
       }
     } catch (error) {
-      console.error("Error checking game session:", error);
+      // console.error("Error checking game session:", error);
     }
   };
 
@@ -100,7 +100,7 @@ export default function PlayWithAI() {
       await AsyncStorage.setItem(CHESS_STORAGE_KEYS.COLOR, selectedColor);
       await AsyncStorage.setItem(CHESS_STORAGE_KEYS.GAME_SESSION, "active");
     } catch (error) {
-      console.error("Error saving game settings:", error);
+      // console.error("Error saving game settings:", error);
     }
   };
 
@@ -116,7 +116,7 @@ export default function PlayWithAI() {
         "game_id",
       ]);
     } catch (error) {
-      console.error("Error clearing game session:", error);
+      // console.error("Error clearing game session:", error);
     }
   };
 
@@ -147,8 +147,7 @@ export default function PlayWithAI() {
         setLoading(false);
       }, 1000);
     } catch (error) {
-      console.error("Error starting game:", error);
-      Alert.alert("Error", "Failed to start game. Please try again.");
+      // console.error("Error starting game:", error);
       setLoading(false);
     }
   };
@@ -162,27 +161,11 @@ export default function PlayWithAI() {
     setSelectedColor(color);
   };
 
-  const handleBackPress = () => {
+  const handleBackPress = async () => {
     if (gameStarted) {
-      Alert.alert(
-        "Quit Game",
-        "Are you sure you want to quit? Your game progress will be lost.",
-        [
-          {
-            text: "Cancel",
-            style: "cancel",
-          },
-          {
-            text: "Quit",
-            style: "destructive",
-            onPress: async () => {
-              await clearGameSession();
-              setGameStarted(false);
-              router.back();
-            },
-          },
-        ]
-      );
+      await clearGameSession();
+      setGameStarted(false);
+      router.back();
     } else {
       router.back();
     }
@@ -193,24 +176,8 @@ export default function PlayWithAI() {
   };
 
   const handleGameQuit = async () => {
-    Alert.alert(
-      "Quit Game",
-      "Are you sure you want to quit? Your game progress will be lost.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Quit",
-          style: "destructive",
-          onPress: async () => {
-            await clearGameSession();
-            setGameStarted(false);
-          },
-        },
-      ]
-    );
+    await clearGameSession();
+    setGameStarted(false);
   };
 
   if (loading) {

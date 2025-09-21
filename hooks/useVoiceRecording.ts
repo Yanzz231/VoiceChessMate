@@ -114,7 +114,7 @@ export const useVoiceRecording = (options: UseVoiceRecordingOptions) => {
           rate: 0.9,
         });
       } catch (error) {
-        console.error("Error stopping recording:", error);
+        // console.error("Error stopping recording:", error);
       }
     }
   }, [isRecording, stopRecording]);

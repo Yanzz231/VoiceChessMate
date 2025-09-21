@@ -73,9 +73,13 @@ export default function LessonGameScreen() {
         fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
       )
   );
+  const [showHintModal, setShowHintModal] = useState(false);
+  const [hintMessage, setHintMessage] = useState("");
+  const [showBackModal, setShowBackModal] = useState(false);
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<string[]>([]);
   const [gameStates, setGameStates] = useState<GameState[]>([]);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [gameStatus, setGameStatus] = useState<
     "playing" | "completed" | "checkmate" | "stalemate" | "draw"
   >("playing");
@@ -89,8 +93,6 @@ export default function LessonGameScreen() {
   const [currentPieceTheme, setCurrentPieceTheme] =
     useState<PieceTheme>(DEFAULT_PIECE_THEME);
   const [isWaitingForBot, setIsWaitingForBot] = useState(false);
-  const [difficulty] = useState("medium");
-  const [loading, setLoading] = useState(false);
   const [showCompletedModal, setShowCompletedModal] = useState(false);
   const gameRef = useRef(game);
 
@@ -174,21 +176,7 @@ export default function LessonGameScreen() {
           return false;
         }
 
-        Alert.alert(
-          "Leave Course",
-          "Are you sure you want to leave? Your progress will be lost.",
-          [
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
-            {
-              text: "Leave",
-              style: "destructive",
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        setShowBackModal(true);
         return true;
       }
     );
@@ -205,7 +193,7 @@ export default function LessonGameScreen() {
         setCurrentTheme(theme);
       }
     } catch (error) {
-      console.error("Error loading theme:", error);
+      // console.error("Error loading theme:", error);
     }
   };
 
@@ -221,7 +209,7 @@ export default function LessonGameScreen() {
         setCurrentPieceTheme(theme);
       }
     } catch (error) {
-      console.error("Error loading piece theme:", error);
+      // console.error("Error loading piece theme:", error);
     }
   };
 
@@ -250,21 +238,6 @@ export default function LessonGameScreen() {
     };
 
     setGameStates((prev) => [...prev, newState]);
-  };
-
-  const mapDifficultyToBotLevel = (difficulty: string): string => {
-    switch (difficulty) {
-      case "Beginner":
-        return "easy";
-      case "Intermediate":
-        return "medium";
-      case "Advanced":
-        return "hard";
-      case "Expert":
-        return "expert";
-      default:
-        return "medium";
-    }
   };
 
   const makeBotMove = async () => {
@@ -308,7 +281,7 @@ export default function LessonGameScreen() {
         throw new Error(response.message || "Bot move failed");
       }
     } catch (error) {
-      console.error("Bot move error:", error);
+      // console.error("Bot move error:", error);
     } finally {
       setIsWaitingForBot(false);
     }
@@ -329,6 +302,10 @@ export default function LessonGameScreen() {
     }
   };
 
+  const handleSettingsPress = () => {
+    setShowSettingsModal(true);
+  };
+
   const handleCourseComplete = async () => {
     try {
       await AsyncStorage.setItem(`course_${courseId}_completed`, "true");
@@ -341,7 +318,7 @@ export default function LessonGameScreen() {
         setShowCompletedModal(true);
       }, 1000);
     } catch (error) {
-      console.error("Error saving course completion:", error);
+      // console.error("Error saving course completion:", error);
     }
   };
 
@@ -480,12 +457,130 @@ export default function LessonGameScreen() {
     setLastMove(null);
   };
 
+  const renderSettingsModal = () => {
+    if (!showSettingsModal) return null;
+
+    return (
+      <Modal
+        visible={showSettingsModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Open Settings
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6">
+              Opening settings might affect your current game progress. Are you
+              sure you want to continue?
+            </Text>
+
+            <View className="gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowSettingsModal(false);
+                  router.replace("/settings");
+                }}
+                className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
+              >
+                <Text className="text-white text-lg font-semibold text-center">
+                  Yes, Open Settings
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowSettingsModal(false)}
+                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
+              >
+                <Text className="text-gray-700 text-lg font-medium text-center">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderBackModal = () => {
+    if (!showBackModal) return null;
+
+    return (
+      <Modal visible={showBackModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Quit Game
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6">
+              Are you sure you want to quit? Your game progress will be lost.
+            </Text>
+
+            <View className="gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowBackModal(false);
+                  router.replace("/lesson");
+                }}
+                className="bg-red-600 py-4 rounded-2xl shadow-lg active:bg-red-700"
+              >
+                <Text className="text-white text-lg font-semibold text-center">
+                  Quit Game
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowBackModal(false)}
+                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
+              >
+                <Text className="text-gray-700 text-lg font-medium text-center">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderHintModal = () => {
+    if (!showHintModal) return null;
+
+    return (
+      <Modal visible={showHintModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Chess Hint
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6 leading-relaxed">
+              {hintMessage}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setShowHintModal(false)}
+              className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
+            >
+              <Text className="text-white text-lg font-semibold text-center">
+                Got it!
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   const handleHint = async () => {
     if (gameStatus !== "playing" || isWaitingForBot || isProcessingMove) return;
 
     const currentPlayerColor = "w";
     if (game.turn() !== currentPlayerColor) {
-      Alert.alert("Hint", "It's not your turn yet!");
+      setHintMessage("It's not your turn yet!");
+      setShowHintModal(true);
       return;
     }
 
@@ -493,37 +588,32 @@ export default function LessonGameScreen() {
       const response = await userService.getHint(game.fen());
 
       if (response.success && response.data?.hint) {
-        Alert.alert("Chess Hint", response.data.hint, [
-          {
-            text: "Got it!",
-            style: "default",
-          },
-        ]);
+        setHintMessage(response.data.hint);
+        setShowHintModal(true);
       } else {
         const moves = game.moves({ verbose: true });
         if (moves.length > 0) {
           const randomMove = moves[Math.floor(Math.random() * moves.length)];
-          Alert.alert(
-            "Hint",
+          setHintMessage(
             `Consider moving from ${randomMove.from} to ${randomMove.to}`
           );
+          setShowHintModal(true);
         } else {
-          Alert.alert("Hint", "No moves available!");
+          setHintMessage("No moves available!");
+          setShowHintModal(true);
         }
       }
     } catch (error) {
       const moves = game.moves({ verbose: true });
       if (moves.length > 0) {
         const randomMove = moves[Math.floor(Math.random() * moves.length)];
-        Alert.alert(
-          "Hint",
+        setHintMessage(
           `Consider moving from ${randomMove.from} to ${randomMove.to}`
         );
+        setShowHintModal(true);
       } else {
-        Alert.alert(
-          "Hint",
-          "Unable to get hint at this time. Please try again."
-        );
+        setHintMessage("Unable to get hint at this time. Please try again.");
+        setShowHintModal(true);
       }
     }
   };
@@ -865,7 +955,7 @@ export default function LessonGameScreen() {
       <View className="bg-white px-4 py-4 pt-14 shadow-sm">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => setShowBackModal(true)}
             className="w-10 h-10 justify-center items-center"
           >
             <BackIcon height={30} width={30} />
@@ -881,7 +971,10 @@ export default function LessonGameScreen() {
               • {currentTheme.name}
             </Text>
           </View>
-          <TouchableOpacity className="w-10 h-10 justify-center items-center">
+          <TouchableOpacity
+            onPress={handleSettingsPress}
+            className="w-10 h-10 justify-center items-center"
+          >
             <Setting height={30} width={30} color="#000" />
           </TouchableOpacity>
         </View>
@@ -918,7 +1011,7 @@ export default function LessonGameScreen() {
       <View className="bg-white px-4 py-6 border-t border-gray-100">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => setShowBackModal(true)}
             className="items-center flex-1"
             disabled={isVoiceDisabled}
           >
@@ -1020,6 +1113,9 @@ export default function LessonGameScreen() {
         </View>
       </View>
 
+      {renderBackModal()}
+      {renderHintModal()}
+      {renderSettingsModal()}
       {renderCompletedModal()}
       {renderPromotionModal()}
     </SafeAreaView>

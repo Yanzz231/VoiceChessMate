@@ -117,7 +117,7 @@ class AssemblyAIService {
 
       return uri;
     } catch (error) {
-      console.error("Error stopping recording:", error);
+      // console.error("Error stopping recording:", error);
       this.isRecording = false;
       this.recording = null;
       throw error;

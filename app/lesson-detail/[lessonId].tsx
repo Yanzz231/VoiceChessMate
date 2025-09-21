@@ -716,7 +716,7 @@ export default function LessonDetailScreen() {
       <SafeAreaView edges={["top"]}>
         <View className="flex-row items-center px-4 py-4 bg-white border-b border-gray-100">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace("/lesson")}
             className="mr-4 p-1"
             activeOpacity={0.7}
           >

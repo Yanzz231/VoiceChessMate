@@ -44,7 +44,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({ user, onSignOut }) => {
             <Text className="text-white/80 text-sm">
               Hi {user?.user_metadata?.name?.split(" ")[0] || "Guest"}
             </Text>
-            <Text className="text-white text-lg font-semibold">Welcome 🎯</Text>
+            <Text className="text-white text-lg font-semibold">Welcome</Text>
           </View>
         </View>
         <TouchableOpacity

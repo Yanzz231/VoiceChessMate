@@ -31,14 +31,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       </View>
 
       <Text className="text-lg font-semibold text-gray-900 leading-7 mb-4">
-        Rasakan setiap langkah - mainkan catur dengan mudah, hanya menggunakan
-        suara Anda
+        Experience every move – play chess effortlessly, using only your voice
       </Text>
 
       <Text className="text-sm text-gray-600 leading-6 mb-9">
-        Tanpa layar, tanpa gangguan, ucapkan langkah Anda, dan dengarkan
-        permainan berlangsung. ChessMate dirancang intuitif dan memberdayakan,
-        membuat catur dapat diakses dengan cara yang terasa imersif untuk semua
+        No screen, no distractions — just speak your moves and hear the game
+        unfold. ChessMate is designed to be intuitive and empowering, making
+        chess accessible in an immersive way for everyone.
       </Text>
 
       <TouchableOpacity
@@ -59,7 +58,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             <GoogleSvg height={20} width={20} />
           )}
           <Text className="text-white text-base font-semibold">
-            {loading ? "Sedang masuk..." : "Masuk dengan Google"}
+            {loading ? "Signing in..." : "Sign in with Google"}
           </Text>
         </LinearGradient>
       </TouchableOpacity>

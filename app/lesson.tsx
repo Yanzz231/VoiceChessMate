@@ -1,10 +1,4 @@
 import { PieceRenderer } from "@/components/chess/PieceRenderer";
-import {
-  DEFAULT_PIECE_THEME,
-  PIECE_THEMES,
-  PieceTheme,
-} from "@/constants/chessPieceThemes";
-import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
 import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +8,7 @@ import * as Speech from "expo-speech";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  BackHandler,
   RefreshControl,
   ScrollView,
   Text,
@@ -41,8 +36,6 @@ interface Section {
 
 export default function LessonsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPieceTheme, setCurrentPieceTheme] =
-    useState<PieceTheme>(DEFAULT_PIECE_THEME);
   const [refreshing, setRefreshing] = useState(false);
   const [sections, setSections] = useState<Section[]>([
     {
@@ -210,20 +203,6 @@ export default function LessonsScreen() {
     onTranscriptComplete: handleTranscriptComplete,
   });
 
-  const loadPieceTheme = async () => {
-    try {
-      const savedPieceThemeId = await AsyncStorage.getItem(
-        CHESS_STORAGE_KEYS.PIECE_THEME
-      );
-      if (savedPieceThemeId) {
-        const pieceTheme =
-          PIECE_THEMES.find((t) => t.id === savedPieceThemeId) ||
-          DEFAULT_PIECE_THEME;
-        setCurrentPieceTheme(pieceTheme);
-      }
-    } catch (error) {}
-  };
-
   const loadLessonProgress = async () => {
     try {
       const updatedSections = await Promise.all(
@@ -254,16 +233,12 @@ export default function LessonsScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([loadPieceTheme(), loadLessonProgress()]);
+      await Promise.all([loadLessonProgress()]);
     } catch (error) {
     } finally {
       setRefreshing(false);
     }
   }, [sections]);
-
-  useEffect(() => {
-    loadPieceTheme();
-  }, []);
 
   useEffect(() => {
     loadLessonProgress();
@@ -274,6 +249,18 @@ export default function LessonsScreen() {
       cleanup();
     };
   }, [cleanup]);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        router.replace("/home");
+        return true;
+      }
+    );
+
+    return () => backHandler.remove();
+  }, []);
 
   const toggleSection = (sectionTitle: string) => {
     setSections((prev) =>
@@ -434,7 +421,7 @@ export default function LessonsScreen() {
       <SafeAreaView edges={["top"]}>
         <View className="flex-row items-center px-4 py-4 bg-white border-b border-gray-100">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace("/home")}
             className="mr-4 p-1"
             activeOpacity={0.7}
           >

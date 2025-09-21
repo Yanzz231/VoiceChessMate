@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import * as Speech from "expo-speech";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -33,6 +33,12 @@ export default function SettingsPage() {
   const [currentPieceTheme, setCurrentPieceTheme] =
     useState<PieceTheme>(DEFAULT_PIECE_THEME);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showClearDataModal, setShowClearDataModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
 
   const { processVoiceCommand } = useVoiceNavigation({
     onNavigationStart: (screen) => {
@@ -137,7 +143,8 @@ export default function SettingsPage() {
       setCurrentTheme(theme);
     } catch (error) {
       console.error("Error saving theme:", error);
-      Alert.alert("Error", "Failed to save theme selection");
+      setModalMessage("Failed to save theme selection");
+      setShowErrorModal(true);
     }
   };
 
@@ -147,63 +154,189 @@ export default function SettingsPage() {
       setCurrentPieceTheme(theme);
     } catch (error) {
       console.error("Error saving piece theme:", error);
-      Alert.alert("Error", "Failed to save piece theme selection");
+      setModalMessage("Failed to save piece theme selection");
+      setShowErrorModal(true);
     }
   };
 
-  const resetToDefault = async () => {
-    Alert.alert(
-      "Reset Themes",
-      "Are you sure you want to reset to the default themes?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: async () => {
-            await handleThemeSelect(DEFAULT_THEME);
-            await handlePieceThemeSelect(DEFAULT_PIECE_THEME);
+  const resetToDefault = () => {
+    setShowResetModal(true);
+  };
 
-            Speech.speak("Themes reset to default", {
-              language: "en-US",
-              pitch: 1.0,
-              rate: 0.9,
-            });
-          },
-        },
-      ]
+  const confirmReset = async () => {
+    setShowResetModal(false);
+    await handleThemeSelect(DEFAULT_THEME);
+    await handlePieceThemeSelect(DEFAULT_PIECE_THEME);
+
+    Speech.speak("Themes reset to default", {
+      language: "en-US",
+      pitch: 1.0,
+      rate: 0.9,
+    });
+  };
+
+  const clearAllData = () => {
+    setShowClearDataModal(true);
+  };
+
+  const confirmClearData = async () => {
+    setShowClearDataModal(false);
+    try {
+      await AsyncStorage.clear();
+      setCurrentTheme(DEFAULT_THEME);
+      setCurrentPieceTheme(DEFAULT_PIECE_THEME);
+
+      Speech.speak("All data cleared", {
+        language: "en-US",
+        pitch: 1.0,
+        rate: 0.9,
+      });
+
+      setModalMessage("All data has been cleared");
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error("Error clearing data:", error);
+      setModalMessage("Failed to clear data");
+      setShowErrorModal(true);
+    }
+  };
+
+  const renderResetModal = () => {
+    if (!showResetModal) return null;
+
+    return (
+      <Modal visible={showResetModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Reset Themes
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6">
+              Are you sure you want to reset to the default themes?
+            </Text>
+
+            <View className="gap-3">
+              <TouchableOpacity
+                onPress={confirmReset}
+                className="bg-red-500 py-4 rounded-2xl"
+              >
+                <Text className="text-white text-lg font-semibold text-center">
+                  Reset
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowResetModal(false)}
+                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
+              >
+                <Text className="text-gray-700 text-lg font-medium text-center">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     );
   };
 
-  const clearAllData = async () => {
-    Alert.alert(
-      "Clear All Data",
-      "This will delete all your game history, settings, and preferences. This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete All",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await AsyncStorage.clear();
-              setCurrentTheme(DEFAULT_THEME);
-              setCurrentPieceTheme(DEFAULT_PIECE_THEME);
+  const renderClearDataModal = () => {
+    if (!showClearDataModal) return null;
 
-              Speech.speak("All data cleared", {
-                language: "en-US",
-                pitch: 1.0,
-                rate: 0.9,
-              });
+    return (
+      <Modal
+        visible={showClearDataModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Clear All Data
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6 leading-relaxed">
+              This will delete all your game history, settings, and preferences.
+              This action cannot be undone.
+            </Text>
 
-              Alert.alert("Success", "All data has been cleared");
-            } catch (error) {
-              console.error("Error clearing data:", error);
-              Alert.alert("Error", "Failed to clear data");
-            }
-          },
-        },
-      ]
+            <View className="gap-3">
+              <TouchableOpacity
+                onPress={confirmClearData}
+                className="bg-red-600 py-4 rounded-2xl shadow-lg active:bg-red-700"
+              >
+                <Text className="text-white text-lg font-semibold text-center">
+                  Delete All
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowClearDataModal(false)}
+                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
+              >
+                <Text className="text-gray-700 text-lg font-medium text-center">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderErrorModal = () => {
+    if (!showErrorModal) return null;
+
+    return (
+      <Modal visible={showErrorModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Error
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6 leading-relaxed">
+              {modalMessage}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setShowErrorModal(false)}
+              className="bg-red-600 py-4 rounded-2xl shadow-lg active:bg-red-700"
+            >
+              <Text className="text-white text-lg font-semibold text-center">
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderSuccessModal = () => {
+    if (!showSuccessModal) return null;
+
+    return (
+      <Modal visible={showSuccessModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Success
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6 leading-relaxed">
+              {modalMessage}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setShowSuccessModal(false)}
+              className="bg-green-600 py-4 rounded-2xl shadow-lg active:bg-green-700"
+            >
+              <Text className="text-white text-lg font-semibold text-center">
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     );
   };
 
@@ -484,6 +617,11 @@ export default function SettingsPage() {
           <View className="h-10" />
         </ScrollView>
       </SafeAreaView>
+
+      {renderResetModal()}
+      {renderClearDataModal()}
+      {renderErrorModal()}
+      {renderSuccessModal()}
     </View>
   );
 }

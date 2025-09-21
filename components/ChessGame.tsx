@@ -3,7 +3,6 @@ import { Chess } from "chess.js";
 import * as Speech from "expo-speech";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert,
   BackHandler,
   Dimensions,
   Modal,
@@ -39,6 +38,8 @@ import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
 import { useVoiceChessMove } from "@/hooks/useVoiceChessMove";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 import { userService } from "@/services/userService";
+
+import { Face } from "@/components/Face";
 
 interface ChessGameProps {
   onQuit: () => void;
@@ -103,6 +104,17 @@ const ChessGame: React.FC<ChessGameProps> = ({
     winner?: string;
     message: string;
   } | null>(null);
+  const [showWelcomePopup, setShowWelcomePopup] = useState(false);
+
+  const [showQuitModal, setShowQuitModal] = useState(false);
+  const [showBackModal, setShowBackModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [showHintModal, setShowHintModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [hintMessage, setHintMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
   const gameRef = useRef(game);
 
   const handleVoiceMoveComplete = useCallback((move: any, newGame: Chess) => {
@@ -149,6 +161,21 @@ const ChessGame: React.FC<ChessGameProps> = ({
     loadTheme();
     loadPieceTheme();
     loadDifficulty();
+
+    const timer = setTimeout(() => {
+      setShowWelcomePopup(true);
+      Speech.speak("Thanks for playing chess with me. Good luck!", {
+        language: "en-US",
+        pitch: 1.0,
+        rate: 0.9,
+      });
+
+      setTimeout(() => {
+        setShowWelcomePopup(false);
+      }, 4000);
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -188,7 +215,6 @@ const ChessGame: React.FC<ChessGameProps> = ({
     const currentPlayerColor = playerColor === "white" ? "w" : "b";
     const isBotTurn = game.turn() !== currentPlayerColor;
 
-    console.log(initialFEN && !isProcessingMove);
     if (initialFEN && isProcessingMove) return;
 
     if (
@@ -219,26 +245,19 @@ const ChessGame: React.FC<ChessGameProps> = ({
           showSettings ||
           showQuickThemeSelector ||
           showPromotionModal ||
-          showGameOverModal
+          showGameOverModal ||
+          showWelcomePopup ||
+          showQuitModal ||
+          showBackModal ||
+          showSettingsModal ||
+          showOptionsModal ||
+          showHintModal ||
+          showErrorModal
         ) {
           return false;
         }
 
-        Alert.alert(
-          "Quit Game",
-          "Are you sure you want to quit? Your game progress will be lost.",
-          [
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
-            {
-              text: "Quit",
-              style: "destructive",
-              onPress: onBack,
-            },
-          ]
-        );
+        setShowBackModal(true);
         return true;
       }
     );
@@ -249,7 +268,13 @@ const ChessGame: React.FC<ChessGameProps> = ({
     showQuickThemeSelector,
     showPromotionModal,
     showGameOverModal,
-    onBack,
+    showWelcomePopup,
+    showQuitModal,
+    showBackModal,
+    showSettingsModal,
+    showOptionsModal,
+    showHintModal,
+    showErrorModal,
   ]);
 
   const loadTheme = async () => {
@@ -615,7 +640,8 @@ const ChessGame: React.FC<ChessGameProps> = ({
 
   const handleUndo = () => {
     if (isWaitingForBot || gameStates.length <= 1 || isProcessingMove) {
-      Alert.alert("Cannot Undo", "No moves to undo.");
+      setErrorMessage("No moves to undo.");
+      setShowErrorModal(true);
       return;
     }
 
@@ -631,7 +657,8 @@ const ChessGame: React.FC<ChessGameProps> = ({
     }
 
     if (targetStateIndex === -1) {
-      Alert.alert("Cannot Undo", "No player moves to undo.");
+      setErrorMessage("No player moves to undo.");
+      setShowErrorModal(true);
       return;
     }
 
@@ -664,13 +691,15 @@ const ChessGame: React.FC<ChessGameProps> = ({
 
       const userId = await AsyncStorage.getItem("user_id");
       if (!userId) {
-        Alert.alert("Error", "User not found. Please login again.");
+        setErrorMessage("User not found. Please login again.");
+        setShowErrorModal(true);
         return;
       }
 
       const gameId = await userService.createGame(userId);
       if (!gameId) {
-        Alert.alert("Error", "Failed to create new game. Please try again.");
+        setErrorMessage("Failed to create new game. Please try again.");
+        setShowErrorModal(true);
         return;
       }
 
@@ -704,36 +733,19 @@ const ChessGame: React.FC<ChessGameProps> = ({
         }, 1000);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to start new game. Please try again.");
+      setErrorMessage("Failed to start new game. Please try again.");
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
   };
 
   const handleOption = () => {
-    Alert.alert("Game Options", "Choose an option", [
-      { text: "New Game", onPress: handleNewGame },
-      { text: "Change Theme", onPress: () => setShowQuickThemeSelector(true) },
-      { text: "Cancel", style: "cancel" },
-    ]);
+    setShowOptionsModal(true);
   };
 
   const handleSettingsPress = () => {
-    Alert.alert(
-      "Open Settings",
-      "Opening settings might affect your current game progress. Are you sure you want to continue?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Yes, Open Settings",
-          style: "default",
-          onPress: () => setShowSettings(true),
-        },
-      ]
-    );
+    setShowSettingsModal(true);
   };
 
   const handleHint = async () => {
@@ -741,7 +753,8 @@ const ChessGame: React.FC<ChessGameProps> = ({
 
     const currentPlayerColor = playerColor === "white" ? "w" : "b";
     if (game.turn() !== currentPlayerColor) {
-      Alert.alert("Hint", "It's not your turn yet!");
+      setHintMessage("It's not your turn yet!");
+      setShowHintModal(true);
       return;
     }
 
@@ -749,37 +762,32 @@ const ChessGame: React.FC<ChessGameProps> = ({
       const response = await userService.getHint(game.fen());
 
       if (response.success && response.data?.hint) {
-        Alert.alert("Chess Hint", response.data.hint, [
-          {
-            text: "Got it!",
-            style: "default",
-          },
-        ]);
+        setHintMessage(response.data.hint);
+        setShowHintModal(true);
       } else {
         const moves = game.moves({ verbose: true });
         if (moves.length > 0) {
           const randomMove = moves[Math.floor(Math.random() * moves.length)];
-          Alert.alert(
-            "Hint",
+          setHintMessage(
             `Consider moving from ${randomMove.from} to ${randomMove.to}`
           );
+          setShowHintModal(true);
         } else {
-          Alert.alert("Hint", "No moves available!");
+          setHintMessage("No moves available!");
+          setShowHintModal(true);
         }
       }
     } catch (error) {
       const moves = game.moves({ verbose: true });
       if (moves.length > 0) {
         const randomMove = moves[Math.floor(Math.random() * moves.length)];
-        Alert.alert(
-          "Hint",
+        setHintMessage(
           `Consider moving from ${randomMove.from} to ${randomMove.to}`
         );
+        setShowHintModal(true);
       } else {
-        Alert.alert(
-          "Hint",
-          "Unable to get hint at this time. Please try again."
-        );
+        setHintMessage("Unable to get hint at this time. Please try again.");
+        setShowHintModal(true);
       }
     }
   };
@@ -988,6 +996,273 @@ const ChessGame: React.FC<ChessGameProps> = ({
     );
   };
 
+  const renderWelcomePopup = () => {
+    if (!showWelcomePopup) return null;
+
+    return (
+      <Modal visible={showWelcomePopup} transparent={true} animationType="fade">
+        <View className="flex-1 justify-start items-center pt-20">
+          <View className="relative">
+            <View className="absolute -left-2 top-4 w-0 h-0 border-t-8 border-b-8 border-r-8 border-transparent border-r-white z-10" />
+
+            <View className="bg-white rounded-2xl  p-6  mx-4 max-w-sm w-full border border-gray-100">
+              <View className="flex-row items-center mb-3">
+                <View className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full items-center justify-center mr-3">
+                  <Face height={70} width={70} />
+                </View>
+                <Text className="text-lg font-semibold text-gray-800">
+                  Albert
+                </Text>
+              </View>
+
+              <Text className="text-gray-800 text-base leading-relaxed mt-2">
+                Thanks for playing chess with me. Good luck!
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderQuitModal = () => {
+    if (!showQuitModal) return null;
+
+    return (
+      <Modal visible={showQuitModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Quit Game
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6">
+              Are you sure you want to quit? Your game progress will be lost.
+            </Text>
+
+            <View className="gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowQuitModal(false);
+                  onQuit();
+                }}
+                className="bg-red-600 py-4 rounded-2xl shadow-lg active:bg-red-700"
+              >
+                <Text className="text-white text-lg font-semibold text-center">
+                  Quit Game
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowQuitModal(false)}
+                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
+              >
+                <Text className="text-gray-700 text-lg font-medium text-center">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderBackModal = () => {
+    if (!showBackModal) return null;
+
+    return (
+      <Modal visible={showBackModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Quit Game
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6">
+              Are you sure you want to quit? Your game progress will be lost.
+            </Text>
+
+            <View className="gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowBackModal(false);
+                  onBack();
+                }}
+                className="bg-red-600 py-4 rounded-2xl shadow-lg active:bg-red-700"
+              >
+                <Text className="text-white text-lg font-semibold text-center">
+                  Quit Game
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowBackModal(false)}
+                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
+              >
+                <Text className="text-gray-700 text-lg font-medium text-center">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderSettingsModal = () => {
+    if (!showSettingsModal) return null;
+
+    return (
+      <Modal
+        visible={showSettingsModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Open Settings
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6">
+              Opening settings might affect your current game progress. Are you
+              sure you want to continue?
+            </Text>
+
+            <View className="gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowSettingsModal(false);
+                  setShowSettings(true);
+                }}
+                className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
+              >
+                <Text className="text-white text-lg font-semibold text-center">
+                  Yes, Open Settings
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowSettingsModal(false)}
+                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
+              >
+                <Text className="text-gray-700 text-lg font-medium text-center">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderOptionsModal = () => {
+    if (!showOptionsModal) return null;
+
+    return (
+      <Modal visible={showOptionsModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-6">
+              Game Options
+            </Text>
+
+            <View className="gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowOptionsModal(false);
+                  handleNewGame();
+                }}
+                className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
+              >
+                <Text className="text-white text-lg font-semibold text-center">
+                  New Game
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setShowOptionsModal(false);
+                  setShowQuickThemeSelector(true);
+                }}
+                className="bg-green-600 py-4 rounded-2xl shadow-lg active:bg-green-700"
+              >
+                <Text className="text-white text-lg font-semibold text-center">
+                  Change Theme
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowOptionsModal(false)}
+                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
+              >
+                <Text className="text-gray-700 text-lg font-medium text-center">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderHintModal = () => {
+    if (!showHintModal) return null;
+
+    return (
+      <Modal visible={showHintModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Chess Hint
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6 leading-relaxed">
+              {hintMessage}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setShowHintModal(false)}
+              className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
+            >
+              <Text className="text-white text-lg font-semibold text-center">
+                Got it!
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderErrorModal = () => {
+    if (!showErrorModal) return null;
+
+    return (
+      <Modal visible={showErrorModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              Error
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6 leading-relaxed">
+              {errorMessage}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setShowErrorModal(false)}
+              className="bg-red-600 py-4 rounded-2xl shadow-lg active:bg-red-700"
+            >
+              <Text className="text-white text-lg font-semibold text-center">
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   const renderGameOverModal = () => {
     if (!showGameOverModal || !gameOverData) return null;
 
@@ -1097,7 +1372,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
                     onPress={() =>
                       handlePromotion(piece.type as PromotionPiece)
                     }
-                    className="items-center p-3 rounded-2xl bg-gray-50 border-2 border-gray-200  active:border-indigo-300"
+                    className="items-center p-3 rounded-2xl bg-gray-50 border-2 border-gray-200 active:border-indigo-300"
                     style={{ width: 80, height: 90 }}
                   >
                     <View className="w-12 h-12 justify-center items-center mb-2">
@@ -1169,7 +1444,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
       <View className="bg-white px-4 py-4 pt-14 shadow-sm">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
-            onPress={onBack}
+            onPress={() => setShowBackModal(true)}
             className="w-10 h-10 justify-center items-center"
           >
             <BackIcon height={30} width={30} />
@@ -1188,7 +1463,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => handleSettingsPress()}
+            onPress={handleSettingsPress}
             className="w-10 h-10 justify-center items-center"
           >
             <Setting height={30} width={30} color="#000" />
@@ -1245,7 +1520,7 @@ const ChessGame: React.FC<ChessGameProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={onQuit}
+            onPress={() => setShowQuitModal(true)}
             className="items-center flex-1"
             disabled={isVoiceDisabled}
           >
@@ -1347,6 +1622,13 @@ const ChessGame: React.FC<ChessGameProps> = ({
         </View>
       </View>
 
+      {renderWelcomePopup()}
+      {renderQuitModal()}
+      {renderBackModal()}
+      {renderSettingsModal()}
+      {renderOptionsModal()}
+      {renderHintModal()}
+      {renderErrorModal()}
       {renderGameOverModal()}
       {renderPromotionModal()}
 
