@@ -35,7 +35,6 @@ export default function ChessGameScreen() {
     showModal,
     modalData,
     showConfirmModal,
-    hideModal,
     handleConfirm,
     handleCancel,
   } = useModalManager();
