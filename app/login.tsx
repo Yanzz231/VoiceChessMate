@@ -1,5 +1,6 @@
 import { LoginForm } from "@/components/auth/LoginForm";
 import { LoginHeader } from "@/components/auth/LoginHeader";
+import { ExitConfirmationModal } from "@/components/ExitConfirmationModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthHandler } from "@/hooks/useAuthHandler";
 import { useExitHandler } from "@/hooks/useExitHandler";
@@ -13,6 +14,13 @@ const LoginScreen = () => {
   const { loading, handleSignInPress } = useAuthHandler();
   const [isVoice, setIsVoice] = useState(true);
 
+  const { showExitModal, handleStayHere, handleExit, appName } = useExitHandler(
+    {
+      enabled: !isAuthenticated,
+      appName: "ChessMate",
+    }
+  );
+
   useEffect(() => {
     const init = async () => {
       if (isVoice) {
@@ -23,11 +31,6 @@ const LoginScreen = () => {
 
     init();
   }, [isVoice]);
-
-  useExitHandler({
-    enabled: !isAuthenticated,
-    appName: "ChessMate",
-  });
 
   return (
     <SafeAreaView className="flex-1">
@@ -41,6 +44,13 @@ const LoginScreen = () => {
           </View>
         </View>
       </LinearGradient>
+
+      <ExitConfirmationModal
+        visible={showExitModal}
+        appName={appName}
+        onStayHere={handleStayHere}
+        onExit={handleExit}
+      />
     </SafeAreaView>
   );
 };

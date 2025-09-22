@@ -1,7 +1,6 @@
-import { useRef } from "react";
-import { Alert, BackHandler } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import React from "react";
+import React, { useRef, useState } from "react";
+import { BackHandler } from "react-native";
 
 interface UseExitHandlerOptions {
   enabled?: boolean;
@@ -13,38 +12,20 @@ export const useExitHandler = (options: UseExitHandlerOptions = {}) => {
   const { enabled = true, appName = "ChessMate", onExit } = options;
 
   const lastBackPress = useRef<number>(0);
+  const [showExitModal, setShowExitModal] = useState(false);
 
-  const showExitConfirmation = () => {
-    Alert.alert(
-      `Exit ${appName}`,
-      `Are you sure you want to close the ${appName} app?`,
-      [
-        {
-          text: "Stay Here",
-          style: "cancel",
-          onPress: () => {
-            lastBackPress.current = 0;
-          },
-        },
-        {
-          text: "Yes, Exit",
-          style: "destructive",
-          onPress: () => {
-            if (onExit) {
-              onExit();
-            } else {
-              BackHandler.exitApp();
-            }
-          },
-        },
-      ],
-      {
-        cancelable: true,
-        onDismiss: () => {
-          lastBackPress.current = 0;
-        },
-      }
-    );
+  const handleStayHere = () => {
+    setShowExitModal(false);
+    lastBackPress.current = 0;
+  };
+
+  const handleExit = () => {
+    setShowExitModal(false);
+    if (onExit) {
+      onExit();
+    } else {
+      BackHandler.exitApp();
+    }
   };
 
   const backAction = () => {
@@ -57,7 +38,7 @@ export const useExitHandler = (options: UseExitHandlerOptions = {}) => {
     }
 
     lastBackPress.current = currentTime;
-    showExitConfirmation();
+    setShowExitModal(true);
     return true;
   };
 
@@ -73,4 +54,11 @@ export const useExitHandler = (options: UseExitHandlerOptions = {}) => {
       return () => backHandler.remove();
     }, [enabled])
   );
+
+  return {
+    showExitModal,
+    handleStayHere,
+    handleExit,
+    appName,
+  };
 };

@@ -9,15 +9,18 @@ import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   AppState,
   Dimensions,
+  Modal,
   StatusBar,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+
+import { useColorPickerModal } from "@/hooks/useColorPickerModal";
+import { useModalManager } from "@/hooks/useModalManager";
 
 const { width, height } = Dimensions.get("window");
 
@@ -43,6 +46,22 @@ const CameraScreen = () => {
   const captureAnimation = useRef(new Animated.Value(1)).current;
 
   const isFocused = useIsFocused();
+
+  const {
+    showModal,
+    modalData,
+    showConfirmModal,
+    hideModal,
+    handleConfirm,
+    handleCancel,
+  } = useModalManager();
+  const {
+    showColorPicker,
+    colorPickerData,
+    showColorSelection,
+    hideColorPicker,
+    handleColorSelect,
+  } = useColorPickerModal();
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
@@ -129,27 +148,35 @@ const CameraScreen = () => {
     }
   };
 
-  const createGameFromFEN = async (fen: string) => {
+  const createGameFromFEN = async (
+    fen: string,
+    selectedColor: "white" | "black"
+  ) => {
     try {
       setIsCreatingGame(true);
 
       const chess = new Chess();
       try {
-        console.log(fen);
         chess.load(fen);
       } catch (fenError) {
-        Alert.alert(
-          "Invalid Position",
-          "The scanned chess position is not valid. Please try scanning again."
-        );
+        showConfirmModal({
+          title: "Invalid Position",
+          message:
+            "The scanned chess position is not valid. Please try scanning again.",
+          confirmText: "OK",
+          onConfirm: resetAllState,
+        });
         return;
       }
 
       if (chess.isGameOver()) {
-        Alert.alert(
-          "Game Over Position",
-          "This chess position appears to be a completed game. Please scan an active game position."
-        );
+        showConfirmModal({
+          title: "Game Over Position",
+          message:
+            "This chess position appears to be a completed game. Please scan an active game position.",
+          confirmText: "OK",
+          onConfirm: resetAllState,
+        });
         return;
       }
 
@@ -164,7 +191,7 @@ const CameraScreen = () => {
         ["game_id", gameId],
         [CHESS_STORAGE_KEYS.GAME_FEN, fen],
         [CHESS_STORAGE_KEYS.DIFFICULTY, "medium"],
-        [CHESS_STORAGE_KEYS.COLOR, "white"],
+        [CHESS_STORAGE_KEYS.COLOR, selectedColor],
         [CHESS_STORAGE_KEYS.GAME_SESSION, "active"],
       ]);
 
@@ -186,10 +213,13 @@ const CameraScreen = () => {
         params: { fromScan: "true", fen: fen },
       });
     } catch (error) {
-      Alert.alert(
-        "Error",
-        "Failed to create game from scanned position. Please try again."
-      );
+      showConfirmModal({
+        title: "Error",
+        message:
+          "Failed to create game from scanned position. Please try again.",
+        confirmText: "OK",
+        onConfirm: resetAllState,
+      });
     } finally {
       setIsCreatingGame(false);
     }
@@ -201,7 +231,11 @@ const CameraScreen = () => {
     }
 
     if (typeof cameraRef.current.takePictureAsync !== "function") {
-      Alert.alert("Error", "Camera not ready");
+      showConfirmModal({
+        title: "Error",
+        message: "Camera not ready. Please wait a moment and try again.",
+        confirmText: "OK",
+      });
       return;
     }
 
@@ -242,43 +276,42 @@ const CameraScreen = () => {
           if (fenString) {
             setIsAnalyzing(false);
 
-            Alert.alert(
-              "Chess Board Detected!",
-              "Board position has been analyzed successfully. Start a game with this position?",
-              [
-                {
-                  text: "Retake",
-                  style: "cancel",
-                  onPress: resetAllState,
-                },
-                {
-                  text: "Start Game",
-                  onPress: () => createGameFromFEN(fenString),
-                },
-              ]
-            );
+            showColorSelection({
+              title: "Chess Board Detected!",
+              message:
+                "Board position has been analyzed successfully. Choose your color:",
+              fenData: fenString,
+              onSelectColor: (color) => createGameFromFEN(fenString, color),
+            });
           } else {
             throw new Error("No FEN data received");
           }
         } catch (analysisError) {
           setIsAnalyzing(false);
-          Alert.alert(
-            "Analysis Failed",
-            "Could not analyze the chess board. Please ensure the board is clearly visible and try again.",
-            [
-              {
-                text: "Try Again",
-                onPress: resetAllState,
-              },
-            ]
-          );
+          showConfirmModal({
+            title: "Analysis Failed",
+            message:
+              "Could not analyze the chess board. Please ensure the board is clearly visible and try again.",
+            confirmText: "Try Again",
+            onConfirm: resetAllState,
+          });
         }
       } else {
-        Alert.alert("Error", "Failed to capture image");
+        showConfirmModal({
+          title: "Error",
+          message: "Failed to capture image. Please try again.",
+          confirmText: "OK",
+          onConfirm: resetAllState,
+        });
         setIsCapturing(false);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to capture photo");
+      showConfirmModal({
+        title: "Error",
+        message: "Failed to capture photo. Please try again.",
+        confirmText: "OK",
+        onConfirm: resetAllState,
+      });
       setIsCapturing(false);
     } finally {
       isProcessingRef.current = false;
@@ -287,6 +320,102 @@ const CameraScreen = () => {
 
   const switchCamera = () => {
     setFacing((current) => (current === "back" ? "front" : "back"));
+  };
+
+  const renderConfirmModal = () => {
+    if (!showModal || !modalData) return null;
+
+    return (
+      <Modal visible={showModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              {modalData.title}
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6 leading-relaxed">
+              {modalData.message}
+            </Text>
+            <View className="gap-3">
+              {modalData.onConfirm && (
+                <TouchableOpacity
+                  onPress={handleConfirm}
+                  className={`py-4 rounded-2xl shadow-lg ${
+                    modalData.title === "Error" ||
+                    modalData.title === "Analysis Failed"
+                      ? "bg-red-600 active:bg-red-700"
+                      : "bg-indigo-600 active:bg-indigo-700"
+                  }`}
+                >
+                  <Text className="text-white text-lg font-semibold text-center">
+                    {modalData.confirmText}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {modalData.onCancel && modalData.cancelText && (
+                <TouchableOpacity
+                  onPress={handleCancel}
+                  className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
+                >
+                  <Text className="text-gray-700 text-lg font-medium text-center">
+                    {modalData.cancelText}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderColorPickerModal = () => {
+    if (!showColorPicker || !colorPickerData) return null;
+
+    return (
+      <Modal visible={showColorPicker} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              {colorPickerData.title}
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6 leading-relaxed">
+              {colorPickerData.message}
+            </Text>
+
+            <View className="gap-3 mb-4">
+              <TouchableOpacity
+                onPress={() => handleColorSelect("white")}
+                className="bg-white border-2 border-gray-300 py-6 rounded-2xl shadow-sm active:bg-gray-50 flex-row items-center justify-center"
+              >
+                <View className="w-8 h-8 bg-white border-2 border-gray-400 rounded-full mr-3" />
+                <Text className="text-gray-800 text-lg font-semibold">
+                  Play as White
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleColorSelect("black")}
+                className="bg-gray-800 py-6 rounded-2xl shadow-lg active:bg-gray-900 flex-row items-center justify-center"
+              >
+                <View className="w-8 h-8 bg-gray-800 border-2 border-gray-600 rounded-full mr-3" />
+                <Text className="text-white text-lg font-semibold">
+                  Play as Black
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              onPress={hideColorPicker}
+              className="bg-gray-100 py-3 rounded-2xl active:bg-gray-200"
+            >
+              <Text className="text-gray-700 text-base font-medium text-center">
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
   };
 
   const isProcessing = isCapturing || isAnalyzing || isCreatingGame;
@@ -333,7 +462,7 @@ const CameraScreen = () => {
               {isAnalyzing && "Analyzing chess board..."}
               {isCreatingGame && "Creating game..."}
             </Text>
-            <Text className="mt-2 text-gray-500">
+            <Text className="mt-2 text-gray-500 text-center">
               {isCapturing && "Please wait while we capture the image"}
               {isAnalyzing && "Detecting pieces and board position"}
               {isCreatingGame && "Setting up your chess game"}
@@ -370,6 +499,7 @@ const CameraScreen = () => {
           </View>
 
           <View className="absolute inset-0 flex items-center justify-center">
+            {/* Top Left Corner */}
             <View
               className="absolute border-white/80"
               style={{
@@ -381,6 +511,7 @@ const CameraScreen = () => {
                 borderLeftWidth: 3,
               }}
             />
+            {/* Top Right Corner */}
             <View
               className="absolute border-white/80"
               style={{
@@ -392,6 +523,7 @@ const CameraScreen = () => {
                 borderRightWidth: 3,
               }}
             />
+            {/* Bottom Left Corner */}
             <View
               className="absolute border-white/80"
               style={{
@@ -403,6 +535,7 @@ const CameraScreen = () => {
                 borderLeftWidth: 3,
               }}
             />
+            {/* Bottom Right Corner */}
             <View
               className="absolute border-white/80"
               style={{
@@ -468,6 +601,9 @@ const CameraScreen = () => {
           </View>
         </View>
       </CameraView>
+
+      {renderConfirmModal()}
+      {renderColorPickerModal()}
     </View>
   );
 };

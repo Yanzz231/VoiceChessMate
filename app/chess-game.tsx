@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  Modal,
   SafeAreaView,
   StatusBar,
   Text,
@@ -15,6 +15,8 @@ import { BackIcon } from "@/components/BackIcon";
 import ChessGame from "@/components/ChessGame";
 import { Setting } from "@/components/icons/Setting";
 import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
+import { useGameStorage } from "@/hooks/useGameStorage";
+import { useModalManager } from "@/hooks/useModalManager";
 
 export default function ChessGameScreen() {
   const router = useRouter();
@@ -28,6 +30,16 @@ export default function ChessGameScreen() {
   const [selectedColor, setSelectedColor] = useState<"white" | "black">(
     "white"
   );
+
+  const {
+    showModal,
+    modalData,
+    showConfirmModal,
+    hideModal,
+    handleConfirm,
+    handleCancel,
+  } = useModalManager();
+  const { clearGameSession, loadGameSettings } = useGameStorage();
 
   useEffect(() => {
     initializeGameFromScan();
@@ -44,12 +56,13 @@ export default function ChessGameScreen() {
         setGameStarted(true);
         setLoading(false);
       } catch (error) {
-        Alert.alert(
-          "Error",
-          "Failed to initialize game from scanned position."
-        );
+        showConfirmModal({
+          title: "Error",
+          message: "Failed to initialize game from scanned position.",
+          confirmText: "OK",
+          onConfirm: () => router.back(),
+        });
         setLoading(false);
-        router.back();
       }
     } else {
       checkExistingGameSession();
@@ -58,58 +71,35 @@ export default function ChessGameScreen() {
 
   const checkExistingGameSession = async () => {
     try {
-      const gameSession = await AsyncStorage.getItem(
-        CHESS_STORAGE_KEYS.GAME_SESSION
-      );
-      const savedColor = await AsyncStorage.getItem(CHESS_STORAGE_KEYS.COLOR);
-      await AsyncStorage.getItem(CHESS_STORAGE_KEYS.DIFFICULTY);
+      const settings = await loadGameSettings();
 
-      if (savedColor) setSelectedColor(savedColor as "white" | "black");
-
-      if (gameSession === "active") {
-        setGameStarted(true);
+      if (settings) {
+        setSelectedColor(settings.color);
+        if (settings.gameSession === "active") {
+          setGameStarted(true);
+        }
       }
+
       setLoading(false);
     } catch (error) {
       setLoading(false);
     }
   };
 
-  const clearGameSession = async () => {
-    try {
-      await AsyncStorage.multiRemove([
-        CHESS_STORAGE_KEYS.GAME_STATES,
-        CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX,
-        CHESS_STORAGE_KEYS.GAME_SESSION,
-        CHESS_STORAGE_KEYS.DIFFICULTY,
-        CHESS_STORAGE_KEYS.COLOR,
-        CHESS_STORAGE_KEYS.GAME_FEN,
-        "game_id",
-      ]);
-    } catch (error) {}
-  };
-
   const handleBackPress = () => {
     if (gameStarted) {
-      Alert.alert(
-        "Quit Game",
-        "Are you sure you want to quit? Your game progress will be lost.",
-        [
-          {
-            text: "Cancel",
-            style: "cancel",
-          },
-          {
-            text: "Quit",
-            style: "destructive",
-            onPress: async () => {
-              await clearGameSession();
-              setGameStarted(false);
-              router.back();
-            },
-          },
-        ]
-      );
+      showConfirmModal({
+        title: "Quit Game",
+        message:
+          "Are you sure you want to quit? Your game progress will be lost.",
+        confirmText: "Quit",
+        cancelText: "Cancel",
+        onConfirm: async () => {
+          await clearGameSession();
+          setGameStarted(false);
+          router.back();
+        },
+      });
     } else {
       router.back();
     }
@@ -120,23 +110,62 @@ export default function ChessGameScreen() {
   };
 
   const handleGameQuit = async () => {
-    Alert.alert(
-      "Quit Game",
-      "Are you sure you want to quit? Your game progress will be lost.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Quit",
-          style: "destructive",
-          onPress: async () => {
-            await clearGameSession();
-            setGameStarted(false);
-          },
-        },
-      ]
+    showConfirmModal({
+      title: "Quit Game",
+      message:
+        "Are you sure you want to quit? Your game progress will be lost.",
+      confirmText: "Quit",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        await clearGameSession();
+        setGameStarted(false);
+      },
+    });
+  };
+
+  const renderConfirmModal = () => {
+    if (!showModal || !modalData) return null;
+
+    return (
+      <Modal visible={showModal} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/70 justify-center items-center">
+          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
+            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
+              {modalData.title}
+            </Text>
+            <Text className="text-base text-gray-600 text-center mb-6 leading-relaxed">
+              {modalData.message}
+            </Text>
+            <View className="gap-3">
+              {modalData.onConfirm && (
+                <TouchableOpacity
+                  onPress={handleConfirm}
+                  className={`py-4 rounded-2xl shadow-lg ${
+                    modalData.confirmText === "Quit" ||
+                    modalData.confirmText === "OK"
+                      ? "bg-red-600 active:bg-red-700"
+                      : "bg-indigo-600 active:bg-indigo-700"
+                  }`}
+                >
+                  <Text className="text-white text-lg font-semibold text-center">
+                    {modalData.confirmText}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {modalData.onCancel && modalData.cancelText && (
+                <TouchableOpacity
+                  onPress={handleCancel}
+                  className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
+                >
+                  <Text className="text-gray-700 text-lg font-medium text-center">
+                    {modalData.cancelText}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     );
   };
 
@@ -158,12 +187,15 @@ export default function ChessGameScreen() {
 
   if (gameStarted) {
     return (
-      <ChessGame
-        onQuit={handleGameQuit}
-        onBack={handleBackPress}
-        playerColor={selectedColor}
-        initialFEN={fromScan === "true" ? fen : undefined}
-      />
+      <>
+        <ChessGame
+          onQuit={handleGameQuit}
+          onBack={handleBackPress}
+          playerColor={selectedColor}
+          initialFEN={fromScan === "true" ? fen : undefined}
+        />
+        {renderConfirmModal()}
+      </>
     );
   }
 
@@ -218,6 +250,8 @@ export default function ChessGameScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {renderConfirmModal()}
     </SafeAreaView>
   );
 }
