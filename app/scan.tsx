@@ -25,7 +25,7 @@ import { useModalManager } from "@/hooks/useModalManager";
 const { width, height } = Dimensions.get("window");
 
 interface ChessBoardAnalysisResponse {
-  data: string;
+  fen: string;
 }
 
 const CameraScreen = () => {
@@ -120,14 +120,14 @@ const CameraScreen = () => {
   ): Promise<string | null> => {
     try {
       const formData = new FormData();
-      formData.append("image", {
+      formData.append("file", {
         uri: imageUri,
         type: "image/jpeg",
         name: "chess_board.jpg",
       } as any);
 
       const response = await fetch(
-        "https://voicechessmatebe-production.up.railway.app/api/analysis/fen-from-image",
+        "https://fastapi-production-079a.up.railway.app/occ/detect?force_openai_full=true&fen_only=true",
         {
           method: "POST",
           headers: {
@@ -142,7 +142,7 @@ const CameraScreen = () => {
       }
 
       const data: ChessBoardAnalysisResponse = await response.json();
-      return data.data;
+      return data.fen;
     } catch (error) {
       throw error;
     }
@@ -210,7 +210,11 @@ const CameraScreen = () => {
 
       router.push({
         pathname: "/chess-game",
-        params: { fromScan: "true", fen: fen },
+        params: {
+          fromScan: "true",
+          fen: fen,
+          selectedColor: selectedColor,
+        },
       });
     } catch (error) {
       showConfirmModal({
@@ -499,7 +503,6 @@ const CameraScreen = () => {
           </View>
 
           <View className="absolute inset-0 flex items-center justify-center">
-            {/* Top Left Corner */}
             <View
               className="absolute border-white/80"
               style={{
@@ -511,7 +514,6 @@ const CameraScreen = () => {
                 borderLeftWidth: 3,
               }}
             />
-            {/* Top Right Corner */}
             <View
               className="absolute border-white/80"
               style={{
@@ -523,7 +525,6 @@ const CameraScreen = () => {
                 borderRightWidth: 3,
               }}
             />
-            {/* Bottom Left Corner */}
             <View
               className="absolute border-white/80"
               style={{
@@ -535,7 +536,6 @@ const CameraScreen = () => {
                 borderLeftWidth: 3,
               }}
             />
-            {/* Bottom Right Corner */}
             <View
               className="absolute border-white/80"
               style={{

@@ -20,9 +20,14 @@ import { useModalManager } from "@/hooks/useModalManager";
 
 export default function ChessGameScreen() {
   const router = useRouter();
-  const { fromScan, fen } = useLocalSearchParams<{
+  const {
+    fromScan,
+    fen,
+    selectedColor: scannedColor,
+  } = useLocalSearchParams<{
     fromScan?: string;
     fen?: string;
+    selectedColor?: string;
   }>();
 
   const [gameStarted, setGameStarted] = useState(false);
@@ -47,11 +52,14 @@ export default function ChessGameScreen() {
   const initializeGameFromScan = async () => {
     if (fromScan === "true" && fen) {
       try {
+        const playerColor = (scannedColor as "white" | "black") || "white";
+
         await AsyncStorage.setItem(CHESS_STORAGE_KEYS.GAME_FEN, fen);
         await AsyncStorage.setItem(CHESS_STORAGE_KEYS.DIFFICULTY, "medium");
-        await AsyncStorage.setItem(CHESS_STORAGE_KEYS.COLOR, "white");
+        await AsyncStorage.setItem(CHESS_STORAGE_KEYS.COLOR, playerColor);
         await AsyncStorage.setItem(CHESS_STORAGE_KEYS.GAME_SESSION, "active");
 
+        setSelectedColor(playerColor);
         setGameStarted(true);
         setLoading(false);
       } catch (error) {
@@ -86,40 +94,15 @@ export default function ChessGameScreen() {
   };
 
   const handleBackPress = () => {
-    if (gameStarted) {
-      showConfirmModal({
-        title: "Quit Game",
-        message:
-          "Are you sure you want to quit? Your game progress will be lost.",
-        confirmText: "Quit",
-        cancelText: "Cancel",
-        onConfirm: async () => {
-          await clearGameSession();
-          setGameStarted(false);
-          router.back();
-        },
-      });
-    } else {
-      router.back();
-    }
+    router.replace("/home");
   };
 
   const handleSettingsPress = () => {
-    router.push("/settings");
+    router.replace("/settings");
   };
 
   const handleGameQuit = async () => {
-    showConfirmModal({
-      title: "Quit Game",
-      message:
-        "Are you sure you want to quit? Your game progress will be lost.",
-      confirmText: "Quit",
-      cancelText: "Cancel",
-      onConfirm: async () => {
-        await clearGameSession();
-        setGameStarted(false);
-      },
-    });
+    router.replace("/home");
   };
 
   const renderConfirmModal = () => {

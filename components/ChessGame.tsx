@@ -182,16 +182,23 @@ const ChessGame: React.FC<ChessGameProps> = ({
   }, [game, gameStates]);
 
   useEffect(() => {
-    if (initialFEN && gameStates.length === 1 && game.history().length > 0) {
-      return;
-    }
+    const currentPlayerColor = playerColor === "white" ? "w" : "b";
+    const isBotTurn = game.turn() !== currentPlayerColor;
 
     if (
       playerColor === "black" &&
       gameStates.length === 1 &&
-      game.history().length === 0 &&
-      !initialFEN
+      game.history().length === 0
     ) {
+      setTimeout(() => {
+        makeBotMove({
+          game,
+          difficulty,
+          initialFEN,
+          onMoveComplete: handleMoveComplete,
+        });
+      }, 1000);
+    } else if (initialFEN && isBotTurn && gameStates.length === 1) {
       setTimeout(() => {
         makeBotMove({
           game,
