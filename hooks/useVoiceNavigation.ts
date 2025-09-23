@@ -34,10 +34,10 @@ export const useVoiceNavigation = (options: UseVoiceNavigationOptions = {}) => {
           router.push("/play");
           break;
         case "lesson":
-          // router.push('/lesson');
+          router.push("/lesson");
           break;
         case "analyze":
-          // router.push('/analyze');
+          router.push("/analyze");
           break;
         case "setting":
           router.push("/settings");
@@ -58,7 +58,9 @@ export const useVoiceNavigation = (options: UseVoiceNavigationOptions = {}) => {
       }
 
       try {
-        console.log(`Processing voice command: "${message}"`);
+        console.log(
+          `Processing voice command: "${message.replace("Voice active.", "")}"`
+        );
 
         const response = await fetch(apiUrl, {
           method: "POST",
@@ -66,7 +68,7 @@ export const useVoiceNavigation = (options: UseVoiceNavigationOptions = {}) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            message: message.trim(),
+            message: message.trim().replace("Voice active.", ""),
           }),
         });
 

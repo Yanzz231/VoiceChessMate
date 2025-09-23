@@ -25,7 +25,7 @@ export interface AssemblyAIConfig {
 
 class AssemblyAIService {
   private apiKey: string;
-  private baseUrl = "https://api.assemblyai.com/v2";
+  private baseUrl = "https://n8n.api.geniusgrowth.ai/webhook/reihan-stt";
   private recording: Audio.Recording | null = null;
   private isRecording = false;
 
@@ -34,15 +34,13 @@ class AssemblyAIService {
     this.setupAudio();
   }
 
-  private async setupAudio() {
+  private async setupAudio(): Promise<void> {
     try {
-      // Request audio recording permissions
       const { granted } = await Audio.requestPermissionsAsync();
       if (!granted) {
         throw new Error("Audio recording permission not granted");
       }
 
-      // Set audio mode for recording
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -60,10 +58,8 @@ class AssemblyAIService {
         return;
       }
 
-      // Create recording instance
       this.recording = new Audio.Recording();
 
-      // Configure recording options
       const recordingOptions = {
         android: {
           extension: ".wav",
@@ -93,7 +89,6 @@ class AssemblyAIService {
       await this.recording.startAsync();
       this.isRecording = true;
     } catch (error) {
-      console.error("Error starting recording:", error);
       throw error;
     }
   }
@@ -107,7 +102,6 @@ class AssemblyAIService {
       await this.recording.stopAndUnloadAsync();
       const uri = this.recording.getURI();
 
-      // Reset state
       this.isRecording = false;
       this.recording = null;
 
@@ -117,134 +111,10 @@ class AssemblyAIService {
 
       return uri;
     } catch (error) {
-      // console.error("Error stopping recording:", error);
       this.isRecording = false;
       this.recording = null;
       throw error;
     }
-  }
-
-  private async uploadAudio(audioUri: string): Promise<string> {
-    try {
-      // Read file as binary data instead of base64
-      const fileInfo = await FileSystem.getInfoAsync(audioUri);
-
-      if (!fileInfo.exists) {
-        throw new Error("Audio file does not exist");
-      }
-
-      // Read file as binary
-      const response = await fetch(audioUri);
-      const audioBlob = await response.blob();
-
-      const uploadResponse = await fetch(`${this.baseUrl}/upload`, {
-        method: "POST",
-        headers: {
-          Authorization: this.apiKey,
-          "Content-Type": "application/octet-stream",
-        },
-        body: audioBlob,
-      });
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        throw new Error(
-          `Upload failed: ${uploadResponse.status} - ${errorText}`
-        );
-      }
-
-      const result = await uploadResponse.json();
-      return result.upload_url;
-    } catch (error) {
-      console.error("Error uploading audio:", error);
-      throw error;
-    }
-  }
-
-  private async submitTranscription(
-    audioUrl: string,
-    config?: Partial<AssemblyAIConfig>
-  ): Promise<string> {
-    try {
-      const transcriptionConfig = {
-        audio_url: audioUrl,
-        language_code: config?.language || "en",
-        punctuate: config?.punctuate ?? true,
-        format_text: config?.format_text ?? true,
-        dual_channel: config?.dual_channel ?? false,
-        webhook_url: config?.webhook_url,
-        auto_highlights: config?.auto_highlights ?? false,
-        speaker_labels: config?.speaker_labels ?? false,
-      };
-
-      const response = await fetch(`${this.baseUrl}/transcript`, {
-        method: "POST",
-        headers: {
-          Authorization: this.apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(transcriptionConfig),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Transcription request failed: ${response.status} - ${errorText}`
-        );
-      }
-
-      const result = await response.json();
-      return result.id;
-    } catch (error) {
-      console.error("Error submitting transcription:", error);
-      throw error;
-    }
-  }
-
-  private async pollTranscription(
-    transcriptionId: string
-  ): Promise<TranscriptionResult> {
-    const maxAttempts = 60;
-    const pollInterval = 5000;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        const response = await fetch(
-          `${this.baseUrl}/transcript/${transcriptionId}`,
-          {
-            headers: {
-              Authorization: this.apiKey,
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Polling failed: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.status === "completed") {
-          return {
-            text: result.text || "",
-            confidence: result.confidence || 0,
-            words: result.words || [],
-          };
-        } else if (result.status === "error") {
-          throw new Error(`Transcription failed: ${result.error}`);
-        }
-
-        // Wait before next poll
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
-      } catch (error) {
-        console.error(`Polling attempt ${attempt + 1} failed:`, error);
-        if (attempt === maxAttempts - 1) {
-          throw error;
-        }
-      }
-    }
-
-    throw new Error("Transcription timeout");
   }
 
   async transcribeFile(
@@ -252,13 +122,149 @@ class AssemblyAIService {
     config?: Partial<AssemblyAIConfig>
   ): Promise<TranscriptionResult> {
     try {
-      const audioUrl = await this.uploadAudio(audioUri);
-      const transcriptionId = await this.submitTranscription(audioUrl, config);
-      const result = await this.pollTranscription(transcriptionId);
-      return result;
+      const fileInfo = await FileSystem.getInfoAsync(audioUri);
+      if (!fileInfo.exists) {
+        throw new Error("Audio file does not exist");
+      }
+
+      if ((fileInfo as any).size && (fileInfo as any).size < 1000) {
+        throw new Error("Audio file is too small");
+      }
+
+      const response = await fetch(audioUri);
+      const audioBlob = await response.blob();
+
+      const webhookResponse = await fetch(this.baseUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+        },
+        body: audioBlob,
+      });
+
+      if (!webhookResponse.ok) {
+        const errorText = await webhookResponse.text();
+        throw new Error(
+          `Webhook failed: ${webhookResponse.status} - ${errorText}`
+        );
+      }
+
+      const responseText = await webhookResponse.text();
+
+      if (!responseText || responseText.trim() === "") {
+        return await this.tryAlternatives(audioUri, audioBlob);
+      }
+
+      return this.parseResponse(responseText);
     } catch (error) {
-      console.error("Error in transcription process:", error);
       throw error;
+    }
+  }
+
+  private async tryAlternatives(
+    audioUri: string,
+    audioBlob: Blob
+  ): Promise<TranscriptionResult> {
+    try {
+      const response = await fetch(this.baseUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "audio/wav",
+        },
+        body: audioBlob,
+      });
+
+      if (response.ok) {
+        const text = await response.text();
+        if (text && text.trim()) {
+          return this.parseResponse(text);
+        }
+      }
+    } catch (error) {
+      // Continue to next method
+    }
+
+    try {
+      const formData = new FormData();
+      const fileName = audioUri.split("/").pop() || "recording.wav";
+
+      formData.append("audio", {
+        uri: audioUri,
+        type: "audio/wav",
+        name: fileName,
+      } as any);
+
+      const response = await fetch(this.baseUrl, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const text = await response.text();
+        if (text && text.trim()) {
+          return this.parseResponse(text);
+        }
+      }
+    } catch (error) {
+      // Continue to next method
+    }
+
+    try {
+      const base64Data = await FileSystem.readAsStringAsync(audioUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const response = await fetch(this.baseUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          audio: base64Data,
+          format: "wav",
+          encoding: "base64",
+        }),
+      });
+
+      if (response.ok) {
+        const text = await response.text();
+        if (text && text.trim()) {
+          return this.parseResponse(text);
+        }
+      }
+    } catch (error) {
+      // All methods failed
+    }
+
+    return {
+      text: "Webhook not responding",
+      confidence: 0.0,
+      words: [],
+    };
+  }
+
+  private parseResponse(responseText: string): TranscriptionResult {
+    try {
+      const result = JSON.parse(responseText);
+
+      const text =
+        result.content?.parts?.[0]?.text ||
+        result.text ||
+        result.transcript ||
+        result.transcription ||
+        responseText;
+
+      return {
+        text: text || "No text found in response",
+        confidence: result.confidence || 0.9,
+        words: result.words || [],
+      };
+    } catch (jsonError) {
+      return {
+        text: responseText,
+        confidence: 0.8,
+        words: [],
+      };
     }
   }
 
@@ -266,28 +272,13 @@ class AssemblyAIService {
     config?: Partial<AssemblyAIConfig>
   ): Promise<TranscriptionResult> {
     try {
-      // Stop recording and get the URI
       const audioUri = await this.stopRecording();
       if (!audioUri) {
-        throw new Error(
-          "No recording available - failed to stop recording or get URI"
-        );
-      }
-
-      // Check if file exists
-      const fileInfo = await FileSystem.getInfoAsync(audioUri);
-      if (!fileInfo.exists) {
-        throw new Error("Recording file does not exist");
-      }
-
-      if (fileInfo.size < 1000) {
-        // Less than 1KB
-        throw new Error("Recording is too short or empty");
+        throw new Error("No recording available");
       }
 
       return await this.transcribeFile(audioUri, config);
     } catch (error) {
-      console.error("Error transcribing recording:", error);
       throw error;
     }
   }
@@ -298,37 +289,35 @@ class AssemblyAIService {
     config?: Partial<AssemblyAIConfig>
   ): Promise<WebSocket> {
     try {
-      const tokenResponse = await fetch(`${this.baseUrl}/realtime/token`, {
-        method: "POST",
-        headers: {
-          Authorization: this.apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          expires_in: 3600, // 1 hour
-        }),
-      });
-
-      if (!tokenResponse.ok) {
-        throw new Error("Failed to get real-time token");
-      }
-
-      const { token } = await tokenResponse.json();
-
       const ws = new WebSocket(
-        `wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000&token=${token}`
+        `wss://n8n.api.geniusgrowth.ai/webhook/reihan-stt-ws`
       );
 
+      ws.onopen = () => {};
+
       ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.message_type === "FinalTranscript") {
-          onTranscript(data.text);
+        try {
+          const data = JSON.parse(event.data);
+          const text =
+            data.content?.parts?.[0]?.text || data.text || event.data;
+          if (text && text.trim()) {
+            onTranscript(text);
+          }
+        } catch (parseError) {
+          if (event.data && event.data.trim()) {
+            onTranscript(event.data);
+          }
         }
       };
 
+      ws.onerror = (error) => {
+        onError(new Error("WebSocket connection error"));
+      };
+
+      ws.onclose = () => {};
+
       return ws;
     } catch (error) {
-      console.error("Error starting real-time transcription:", error);
       throw error;
     }
   }
@@ -343,7 +332,7 @@ class AssemblyAIService {
         await this.stopRecording();
       }
     } catch (error) {
-      console.error("Error during cleanup:", error);
+      // Silent fail
     }
   }
 }
