@@ -1,4 +1,5 @@
 import { PieceRenderer } from "@/components/chess/PieceRenderer";
+import { DEFAULT_PIECE_THEME, PieceTheme } from "@/constants/chessPieceThemes";
 import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 import { Ionicons } from "@expo/vector-icons";
@@ -37,6 +38,8 @@ interface Section {
 export default function LessonsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [currentPieceTheme, setCurrentPieceTheme] =
+    useState<PieceTheme>(DEFAULT_PIECE_THEME);
   const [sections, setSections] = useState<Section[]>([
     {
       title: "Chess Basics",
@@ -295,8 +298,8 @@ export default function LessonsScreen() {
         <PieceRenderer
           type={lesson.pieceType}
           color={lesson.pieceColor}
-          theme={"v2"}
-          size={50}
+          theme={currentPieceTheme.version}
+          size={30}
         />
       );
     } else if (lesson.iconName) {
