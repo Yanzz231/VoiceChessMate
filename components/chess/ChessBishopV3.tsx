@@ -2,7 +2,7 @@ import React from "react";
 import Svg, { ClipPath, Defs, G, Path } from "react-native-svg";
 
 export const BishopV3 = ({ width = 192, height = 192, color = "#000000" }) => {
-  if (color === "#000000") {
+  if (color !== "#000000") {
     return (
       <Svg width={width} height={height} viewBox="-50 -60 381.3 511.7">
         <Defs>
