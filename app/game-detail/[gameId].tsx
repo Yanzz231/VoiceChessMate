@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -35,6 +36,15 @@ const boardSize = width - 64;
 const squareSize = boardSize / 8;
 const coordinateSize = 16;
 
+interface EnhancedMoveData {
+  move: string;
+  fen: string;
+  best_move: string;
+  eval_graph: number;
+  is_eval_mate: boolean;
+  move_grade: string;
+}
+
 export default function GameDetailScreen() {
   const { gameId, moveAmount } = useLocalSearchParams<{
     gameId: string;
@@ -61,6 +71,8 @@ export default function GameDetailScreen() {
     goToStart,
     goToEnd,
   } = useGameDetail(gameId || "", totalMovesFromAnalysis);
+
+  const enhancedMoveData = moveData as EnhancedMoveData | null;
 
   const { processVoiceCommand } = useVoiceNavigation({
     onNavigationStart: (screen) => {
@@ -171,6 +183,66 @@ export default function GameDetailScreen() {
       cleanup();
     };
   }, [cleanup]);
+
+  const getEvaluationColor = (score: number) => {
+    if (score > 2) return "#22c55e";
+    if (score > 0.5) return "#84cc16";
+    if (score > -0.5) return "#eab308";
+    if (score > -2) return "#f97316";
+    return "#ef4444";
+  };
+
+  const getEvaluationText = (score: number, isMate: boolean) => {
+    if (isMate) {
+      return score > 0 ? "White checkmates" : "Black checkmates";
+    }
+
+    if (Math.abs(score) < 0.2) return "Equal position";
+    if (score > 0) {
+      if (score > 3) return `White winning (+${score.toFixed(1)})`;
+      if (score > 1) return `White better (+${score.toFixed(1)})`;
+      return `White slightly better (+${score.toFixed(1)})`;
+    } else {
+      const absScore = Math.abs(score);
+      if (absScore > 3) return `Black winning (-${absScore.toFixed(1)})`;
+      if (absScore > 1) return `Black better (-${absScore.toFixed(1)})`;
+      return `Black slightly better (-${absScore.toFixed(1)})`;
+    }
+  };
+
+  const getMoveGradeColor = (grade: string) => {
+    switch (grade.toLowerCase()) {
+      case "excellent":
+        return "#22c55e";
+      case "good":
+        return "#84cc16";
+      case "inaccuracy":
+        return "#eab308";
+      case "mistake":
+        return "#f97316";
+      case "blunder":
+        return "#ef4444";
+      default:
+        return "#6b7280";
+    }
+  };
+
+  const getMoveGradeIcon = (grade: string) => {
+    switch (grade.toLowerCase()) {
+      case "excellent":
+        return "checkmark-circle";
+      case "good":
+        return "thumbs-up";
+      case "inaccuracy":
+        return "warning";
+      case "mistake":
+        return "close-circle";
+      case "blunder":
+        return "alert-circle";
+      default:
+        return "help-circle";
+    }
+  };
 
   const renderPiece = (piece: any) => {
     if (!piece) return null;
@@ -328,6 +400,141 @@ export default function GameDetailScreen() {
     return `${from.toUpperCase()} → ${to.toUpperCase()}`;
   };
 
+  const renderEvaluationBar = () => {
+    if (!enhancedMoveData?.eval_graph && enhancedMoveData?.eval_graph !== 0)
+      return null;
+
+    const score = enhancedMoveData.eval_graph;
+    const isMate = enhancedMoveData.is_eval_mate;
+
+    const clampedScore = Math.max(-10, Math.min(10, score));
+    const percentage = ((clampedScore + 10) / 20) * 100;
+
+    return (
+      <View className="bg-white mx-4 rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
+        <Text className="text-sm font-semibold text-gray-900 mb-2">
+          Position Evaluation
+        </Text>
+
+        <View className="mb-3">
+          <View className="h-8 bg-gray-200 rounded-lg overflow-hidden flex-row">
+            <View className="bg-red-400 h-full" style={{ width: "50%" }} />
+            <View className="bg-green-400 h-full" style={{ width: "50%" }} />
+            <View
+              className="absolute h-8 w-1 bg-gray-900 rounded-full"
+              style={{
+                left: `${percentage}%`,
+                transform: [{ translateX: -2 }],
+              }}
+            />
+          </View>
+
+          <View className="flex-row justify-between mt-1">
+            <Text className="text-xs text-gray-500">Black advantage</Text>
+            <Text className="text-xs text-gray-500">White advantage</Text>
+          </View>
+        </View>
+
+        <View className="flex-row items-center justify-between">
+          <Text
+            className="text-sm font-medium"
+            style={{ color: getEvaluationColor(score) }}
+          >
+            {getEvaluationText(score, isMate)}
+          </Text>
+          {isMate && (
+            <View className="flex-row items-center">
+              <Ionicons name="trophy" size={16} color="#f59e0b" />
+              <Text className="text-xs text-amber-600 ml-1 font-medium">
+                MATE
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderMoveQuality = () => {
+    if (!enhancedMoveData?.move_grade) return null;
+
+    const grade = enhancedMoveData.move_grade;
+    const color = getMoveGradeColor(grade);
+    const icon = getMoveGradeIcon(grade);
+
+    return (
+      <View className="bg-white mx-4 rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
+        <Text className="text-sm font-semibold text-gray-900 mb-2">
+          Move Quality
+        </Text>
+
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <View
+              className="w-8 h-8 rounded-full items-center justify-center mr-3"
+              style={{ backgroundColor: color + "20" }}
+            >
+              <Ionicons name={icon as any} size={16} color={color} />
+            </View>
+            <View>
+              <Text className="text-base font-semibold" style={{ color }}>
+                {grade}
+              </Text>
+              <Text className="text-xs text-gray-500">Move assessment</Text>
+            </View>
+          </View>
+
+          <View className="items-end">
+            {grade.toLowerCase() === "excellent" && (
+              <View className="flex-row">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Ionicons key={star} name="star" size={12} color="#22c55e" />
+                ))}
+              </View>
+            )}
+            {grade.toLowerCase() === "good" && (
+              <View className="flex-row">
+                {[1, 2, 3, 4].map((star) => (
+                  <Ionicons key={star} name="star" size={12} color="#84cc16" />
+                ))}
+                <Ionicons name="star-outline" size={12} color="#d1d5db" />
+              </View>
+            )}
+            {grade.toLowerCase() === "inaccuracy" && (
+              <View className="flex-row">
+                {[1, 2, 3].map((star) => (
+                  <Ionicons key={star} name="star" size={12} color="#eab308" />
+                ))}
+                {[4, 5].map((star) => (
+                  <Ionicons
+                    key={star}
+                    name="star-outline"
+                    size={12}
+                    color="#d1d5db"
+                  />
+                ))}
+              </View>
+            )}
+            {(grade.toLowerCase() === "mistake" ||
+              grade.toLowerCase() === "blunder") && (
+              <View className="flex-row">
+                <Ionicons name="star" size={12} color="#ef4444" />
+                {[2, 3, 4, 5].map((star) => (
+                  <Ionicons
+                    key={star}
+                    name="star-outline"
+                    size={12}
+                    color="#d1d5db"
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   if (loading && currentMove <= 1) {
     return (
       <View
@@ -393,28 +600,65 @@ export default function GameDetailScreen() {
         </View>
       </SafeAreaView>
 
-      <View className="bg-white px-4 py-3 border-b border-gray-100">
-        <View className="flex-row justify-between items-center">
-          <View className="flex-1">
-            <Text className="text-sm text-gray-600">Current Move</Text>
-            <Text className="text-lg font-semibold text-gray-900">
-              {moveData?.move ? formatMove(moveData.move) : "Starting Position"}
-            </Text>
-          </View>
-          {moveData?.best_move && (
-            <View className="flex-1 items-end">
-              <Text className="text-sm text-gray-600">Best Move</Text>
-              <Text className="text-lg font-semibold text-green-600">
-                {formatMove(moveData.best_move)}
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 20 }}
+      >
+        <View className="bg-white px-4 py-3 border-b border-gray-100">
+          <View className="flex-row justify-between items-center">
+            <View className="flex-1">
+              <Text className="text-sm text-gray-600">Current Move</Text>
+              <Text className="text-lg font-semibold text-gray-900">
+                {moveData?.move
+                  ? formatMove(moveData.move)
+                  : "Starting Position"}
               </Text>
             </View>
-          )}
+            {moveData?.best_move && (
+              <View className="flex-1 items-end">
+                <Text className="text-sm text-gray-600">Best Move</Text>
+                <Text className="text-lg font-semibold text-green-600">
+                  {formatMove(moveData.best_move)}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
 
-      <View className="flex-1 justify-center items-center px-4 py-4">
-        {renderBoard()}
-      </View>
+        <View className="py-6">
+          <View className="items-center">{renderBoard()}</View>
+        </View>
+
+        {renderEvaluationBar()}
+        {renderMoveQuality()}
+
+        <View className="bg-white mx-4 rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
+          <Text className="text-sm font-semibold text-gray-900 mb-2">
+            Game Information
+          </Text>
+          <View className="space-y-1">
+            <View className="flex-row justify-between">
+              <Text className="text-sm text-gray-600">Game ID:</Text>
+              <Text className="text-sm font-mono text-gray-900">
+                {gameId?.slice(0, 8)}...
+              </Text>
+            </View>
+            <View className="flex-row justify-between">
+              <Text className="text-sm text-gray-600">Total Moves:</Text>
+              <Text className="text-sm font-medium text-gray-900">
+                {totalMoves}
+              </Text>
+            </View>
+            <View className="flex-row justify-between">
+              <Text className="text-sm text-gray-600">Current Position:</Text>
+              <Text className="text-sm font-medium text-gray-900">
+                Move {currentMove}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
 
       <View className="bg-white px-4 py-4 border-t border-gray-100">
         <View className="mb-4">

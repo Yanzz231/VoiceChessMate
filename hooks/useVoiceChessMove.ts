@@ -5,12 +5,14 @@ import { useCallback, useState } from "react";
 interface VoiceChessMoveOptions {
   game: Chess;
   onMoveComplete: (move: any, newGame: Chess) => void;
+  onLocationQuery?: (locationInfo: string) => void;
   onError?: (error: string) => void;
   baseUrl?: string;
 }
 
 interface VoiceChessMoveResponse {
   data: {
+    status: "Location" | "Move";
     move: string;
     fen: string;
   };
@@ -20,6 +22,7 @@ export const useVoiceChessMove = (options: VoiceChessMoveOptions) => {
   const {
     game,
     onMoveComplete,
+    onLocationQuery,
     onError,
     baseUrl = "https://voicechessmatebe-production.up.railway.app",
   } = options;
@@ -69,30 +72,46 @@ export const useVoiceChessMove = (options: VoiceChessMoveOptions) => {
         const result: VoiceChessMoveResponse = await response.json();
         console.log("Parsed response:", result);
 
-        if (result.data && result.data.fen) {
-          const newGame = new Chess(result.data.fen);
-          const newHistory = newGame.history({ verbose: true });
-          const lastMove = newHistory[newHistory.length - 1];
+        if (result.data) {
+          if (result.data.status === "Location") {
+            const locationInfo = result.data.move;
+            console.log("Location query result:", locationInfo);
 
-          console.log("Move processed successfully:", lastMove);
+            Speech.speak(locationInfo, {
+              language: "en-US",
+              pitch: 1.0,
+              rate: 0.8,
+            });
 
-          onMoveComplete(lastMove, newGame);
+            onLocationQuery?.(locationInfo);
+          } else if (result.data.status === "Move" && result.data.fen) {
+            const newGame = new Chess(result.data.fen);
+            const newHistory = newGame.history({ verbose: true });
+            const lastMove = newHistory[newHistory.length - 1];
 
-          Speech.speak("Move completed", {
-            language: "en-US",
-            pitch: 1.0,
-            rate: 0.9,
-          });
+            console.log("Move processed successfully:", lastMove);
+
+            onMoveComplete(lastMove, newGame);
+
+            Speech.speak("Move completed", {
+              language: "en-US",
+              pitch: 1.0,
+              rate: 0.9,
+            });
+          } else {
+            throw new Error("Invalid response data from server");
+          }
         } else {
-          throw new Error("Invalid response from server");
+          throw new Error("No data in server response");
         }
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
 
+        console.error("Voice processing error:", errorMessage);
         onError?.(errorMessage);
 
-        Speech.speak("Move failed", {
+        Speech.speak("Command failed", {
           language: "en-US",
           pitch: 1.0,
           rate: 0.9,
@@ -102,7 +121,7 @@ export const useVoiceChessMove = (options: VoiceChessMoveOptions) => {
         console.log("Voice move processing finished");
       }
     },
-    [game, onMoveComplete, onError, baseUrl, isProcessingMove]
+    [game, onMoveComplete, onLocationQuery, onError, baseUrl, isProcessingMove]
   );
 
   return {

@@ -52,6 +52,7 @@
     "react-chessboard": "^5.2.2",
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
+    "react-native-chart-kit": "^6.12.0",
     "react-native-chessboard": "^0.1.2",
     "react-native-chessboardjs": "^0.3.0",
     "react-native-gesture-handler": "~2.24.0",

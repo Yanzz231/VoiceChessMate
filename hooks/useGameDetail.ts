@@ -5,6 +5,9 @@ interface MoveData {
   move: string;
   fen: string;
   best_move: string;
+  eval_graph: number;
+  is_eval_mate: boolean;
+  move_grade: string;
 }
 
 interface ApiResponse {
@@ -51,7 +54,23 @@ export const useGameDetail = (
         }
 
         const data: ApiResponse = await response.json();
-        setMoveData(data.data);
+
+        const enhancedMoveData: MoveData = {
+          move: data.data.move || "",
+          fen: data.data.fen || "",
+          best_move: data.data.best_move || "",
+          eval_graph: data.data.eval_graph ?? 0,
+          is_eval_mate: data.data.is_eval_mate ?? false,
+          move_grade: data.data.move_grade || "Good",
+        };
+
+        setMoveData(enhancedMoveData);
+
+        console.log(`Move ${moveNumber} analysis:`, {
+          evaluation: enhancedMoveData.eval_graph,
+          isMate: enhancedMoveData.is_eval_mate,
+          grade: enhancedMoveData.move_grade,
+        });
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to load move data";
