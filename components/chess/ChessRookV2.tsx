@@ -1,7 +1,7 @@
 import Svg, { Path } from "react-native-svg";
 
 export const RookV2 = ({ width = 192, height = 192, color = "#000000" }) => {
-  if (color === "#000000") {
+  if (color !== "#000000") {
     return (
       <Svg viewBox="0 0 640 640" width={width} height={height}>
         <Path
@@ -94,11 +94,7 @@ export const RookV2 = ({ width = 192, height = 192, color = "#000000" }) => {
     );
   } else {
     return (
-      <Svg
-        viewBox="0 0 640 640"
-        width={width}
-        height={height}
-      >
+      <Svg viewBox="0 0 640 640" width={width} height={height}>
         <Path
           fill="#4f5454"
           stroke="#4f5454"
