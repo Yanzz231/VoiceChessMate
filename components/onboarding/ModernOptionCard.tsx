@@ -23,24 +23,15 @@ export const ModernOptionCard: React.FC<ModernOptionCardProps> = ({
   autoSpeak = true,
 }) => {
   const [scaleAnim] = useState(new Animated.Value(1));
-  const [checkAnim] = useState(new Animated.Value(0));
 
   useEffect(() => {
     if (selected) {
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1.02,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 3,
-        }),
-        Animated.spring(checkAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 5,
-        }),
-      ]).start(() => {
+      Animated.spring(scaleAnim, {
+        toValue: 1.02,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 3,
+      }).start(() => {
         Animated.spring(scaleAnim, {
           toValue: 1,
           useNativeDriver: true,
@@ -49,18 +40,11 @@ export const ModernOptionCard: React.FC<ModernOptionCardProps> = ({
         }).start();
       });
     } else {
-      Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(checkAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
     }
   }, [selected]);
 
@@ -154,45 +138,6 @@ export const ModernOptionCard: React.FC<ModernOptionCardProps> = ({
             )}
           </View>
 
-          {/* Checkmark Indicator */}
-          <Animated.View
-            style={{
-              opacity: checkAnim,
-              transform: [
-                {
-                  scale: checkAnim.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [0, 1.2, 1],
-                  }),
-                },
-                {
-                  rotate: checkAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '360deg'],
-                  }),
-                },
-              ],
-            }}
-          >
-            <View
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginLeft: AccessibilitySizes.spacing.sm,
-                backgroundColor: '#27AE60',
-                shadowColor: '#27AE60',
-                shadowOffset: { width: 0, height: 3 },
-                shadowOpacity: 0.4,
-                shadowRadius: 6,
-                elevation: 4,
-              }}
-            >
-              <Ionicons name="checkmark-circle" size={32} color="#FFFFFF" />
-            </View>
-          </Animated.View>
         </View>
       </View>
     </TouchableOpacity>

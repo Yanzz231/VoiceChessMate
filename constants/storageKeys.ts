@@ -13,4 +13,5 @@ export const USER_STORAGE_KEYS = {
   PROFILE: "user_profile",
   ONBOARDING_COMPLETED: "onboarding_completed",
   VOICE_MODE: "voice_mode_enabled",
+  ONBOARDING_MODE: "onboarding_mode",
 };

@@ -185,6 +185,59 @@ The app requires extensive permissions (configured in `app.json`):
 - Keep comments short and to the point - explain what the function does, not how it works
 - Example: `// Validates chess move and updates game state` not `// This function takes the move object and then validates it against the current game state and if valid it updates...`
 
+### Function Naming Convention
+- **Use clear, descriptive names** - Function names should clearly describe what they do
+- **Use camelCase** for function names (e.g., `handleUserLogin`, `validateInput`)
+- **Use action verbs** - Start with verbs like `get`, `set`, `handle`, `fetch`, `update`, `validate`, `calculate`
+- **Be specific** - Avoid vague names like `doStuff`, `process`, `manage`, `helper`
+- **Keep it concise** - Don't use overly long names, but be descriptive enough
+
+**Good Examples:**
+```typescript
+const handleUserLogin = () => { ... }
+const fetchUserProfile = async () => { ... }
+const validateEmailFormat = (email: string) => { ... }
+const calculateTotalScore = (moves: number) => { ... }
+const updateGameState = (newState: GameState) => { ... }
+```
+
+**Bad Examples:**
+```typescript
+const doStuff = () => { ... }  // Too vague
+const xyz = () => { ... }  // Meaningless
+const theFunction = () => { ... }  // Not descriptive
+const processTheThing = () => { ... }  // Unclear
+const handleClick123 = () => { ... }  // Poor naming with numbers
+```
+
+## Asset Management
+
+### Asset Directory Structure
+All assets should be placed in the correct directories following Expo conventions:
+
+```
+assets/
+├── images/
+│   ├── icon.png          # App icon (512x512 or higher recommended)
+│   ├── splash.png        # Splash screen image (412x412, 103KB)
+│   ├── logo.png          # App logo for in-app use
+│   └── favicon.png       # Web favicon
+└── fonts/               # Custom fonts if needed
+```
+
+### Adding New Assets
+1. **Images** → Place in `assets/images/`
+2. **Splash Screen** → Use `assets/images/splash.png` (configured in app.json)
+3. **Icons** → SVG components in `components/icons/`
+4. **Naming Convention** → Use kebab-case for files: `splash-screen.png`, `user-avatar.png`
+
+### Splash Screen Configuration
+- File: `assets/images/splash.png`
+- Size: 412x412 pixels (103KB)
+- Background color: `#F4D03F` (yellow theme)
+- Resize mode: `contain`
+- **Do not create custom splash components** - Expo handles splash natively via app.json
+
 ## Important Notes
 
 - The Supabase credentials in `lib/supabaseClient.ts` are committed (consider moving to environment variables)

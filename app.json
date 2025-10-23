@@ -8,6 +8,11 @@
     "scheme": "samsungvoice",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F4D03F"
+    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {

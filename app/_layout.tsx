@@ -100,9 +100,17 @@ export default function RootLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="(tabs)" />
       <Stack.Screen name="home" />
       <Stack.Screen name="play" />
       <Stack.Screen name="settings" />
+      <Stack.Screen name="lesson" />
+      <Stack.Screen name="chess-game" />
+      <Stack.Screen name="scan" />
+      <Stack.Screen name="analyze" />
+      <Stack.Screen name="lesson-detail/[lessonId]" />
+      <Stack.Screen name="lesson-game/[courseId]" />
+      <Stack.Screen name="game-detail/[gameId]" />
     </Stack>
   );
 }
