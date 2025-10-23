@@ -1,7 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Modal, TouchableOpacity, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { WCAGColors, AccessibilitySizes } from "@/constants/wcagColors";
+import { speak } from "@/utils/speechUtils";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { USER_STORAGE_KEYS } from "@/constants/storageKeys";
 
 interface ExitModalProps {
   visible: boolean;
@@ -14,6 +17,25 @@ export const ExitModal: React.FC<ExitModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  useEffect(() => {
+    if (visible) {
+      const checkVoiceMode = async () => {
+        const voiceMode = await AsyncStorage.getItem(USER_STORAGE_KEYS.VOICE_MODE);
+        if (voiceMode === "true") {
+          speak("Are you sure you want to change this page? Changes you made will not be saved.");
+        }
+      };
+      checkVoiceMode();
+    }
+  }, [visible]);
+
+  const handleTextPress = async (text: string) => {
+    const voiceMode = await AsyncStorage.getItem(USER_STORAGE_KEYS.VOICE_MODE);
+    if (voiceMode === "true") {
+      speak(text);
+    }
+  };
+
   return (
     <Modal visible={visible} transparent={true} animationType="fade">
       <View
@@ -92,20 +114,25 @@ export const ExitModal: React.FC<ExitModalProps> = ({
           </View>
 
           <View style={{ padding: 24 }}>
-            <Text
-              style={{
-                fontSize: AccessibilitySizes.text.md,
-                color: WCAGColors.neutral.gray600,
-                marginBottom: 24,
-                lineHeight: 22,
-              }}
-            >
-              Changes you made will not be saved
-            </Text>
+            <TouchableOpacity onPress={() => handleTextPress("Changes you made will not be saved")}>
+              <Text
+                style={{
+                  fontSize: AccessibilitySizes.text.md,
+                  color: WCAGColors.neutral.gray600,
+                  marginBottom: 24,
+                  lineHeight: 22,
+                }}
+              >
+                Changes you made will not be saved
+              </Text>
+            </TouchableOpacity>
 
             <View style={{ flexDirection: "row", gap: 12, justifyContent: "flex-end" }}>
               <TouchableOpacity
-                onPress={onCancel}
+                onPress={() => {
+                  handleTextPress("No");
+                  onCancel();
+                }}
                 style={{
                   paddingHorizontal: 24,
                   paddingVertical: 12,
@@ -129,7 +156,10 @@ export const ExitModal: React.FC<ExitModalProps> = ({
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={onConfirm}
+                onPress={() => {
+                  handleTextPress("Yes");
+                  onConfirm();
+                }}
                 style={{
                   backgroundColor: WCAGColors.primary.yellow,
                   paddingHorizontal: 24,

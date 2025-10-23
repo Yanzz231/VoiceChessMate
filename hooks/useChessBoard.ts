@@ -91,6 +91,14 @@ export const useChessBoard = (
         setSelectedSquare(null);
         setPossibleMoves([]);
       } else {
+        const targetPiece = game.get(square as any);
+        if (targetPiece && targetPiece.color === game.turn()) {
+          setSelectedSquare(square);
+          const moves = game.moves({ square: square as any, verbose: true });
+          setPossibleMoves(moves.map((move) => move.to));
+          return;
+        }
+
         if (isPawnPromotion(selectedSquare, square)) {
           const piece = game.get(selectedSquare as any);
           setPendingPromotion({

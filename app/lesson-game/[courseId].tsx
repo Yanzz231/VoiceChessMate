@@ -5,21 +5,20 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   BackHandler,
-  Dimensions,
-  Modal,
   SafeAreaView,
-  Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 
-import { BackIcon } from "@/components/BackIcon";
-import { PieceRenderer } from "@/components/chess/PieceRenderer";
-import { FlagIcon } from "@/components/icons/FlagIcon";
-import { HintIcon } from "@/components/icons/HintIcon";
-import { Mic } from "@/components/icons/Mic";
-import { Setting } from "@/components/icons/Setting";
-import { UndoIcon } from "@/components/icons/UndoIcon";
+import { MoveHistory } from "@/components/chess/MoveHistory";
+import { LessonGameHeader } from "@/components/lesson/LessonGameHeader";
+import { LessonGameStatus } from "@/components/lesson/LessonGameStatus";
+import { LessonGameControls } from "@/components/lesson/LessonGameControls";
+import { LessonChessBoard } from "@/components/lesson/LessonChessBoard";
+import { LessonHintModal } from "@/components/lesson/modals/LessonHintModal";
+import { LessonBackModal } from "@/components/lesson/modals/LessonBackModal";
+import { LessonCompleteModal } from "@/components/lesson/modals/LessonCompleteModal";
+import { LessonSettingsModal } from "@/components/lesson/modals/LessonSettingsModal";
+import { LessonPromotionModal } from "@/components/lesson/modals/LessonPromotionModal";
 
 import { useBotMove } from "@/hooks/useBotMove";
 import { useChessBoard } from "@/hooks/useChessBoard";
@@ -28,13 +27,10 @@ import { useChessSettings } from "@/hooks/useChessSettings";
 import { useGameState } from "@/hooks/useGameState";
 import { useGameStorage } from "@/hooks/useGameStorage";
 import { useVoiceChess } from "@/hooks/useVoiceChess";
-
-const { width } = Dimensions.get("window");
-const boardSize = width - 64;
-const squareSize = boardSize / 8;
-const coordinateSize = 16;
-
-type PromotionPiece = "q" | "r" | "b" | "n";
+import { WCAGColors } from "@/constants/wcagColors";
+import { speak } from "@/utils/speechUtils";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { USER_STORAGE_KEYS } from "@/constants/storageKeys";
 
 export default function LessonGameScreen() {
   const { courseId, fen, objective, title } = useLocalSearchParams<{
@@ -49,6 +45,8 @@ export default function LessonGameScreen() {
   const [showBackModal, setShowBackModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showCompletedModal, setShowCompletedModal] = useState(false);
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  const [moveHistory, setMoveHistory] = useState<Array<{ moveNumber: number; white: string; black?: string }>>([]);
 
   const { currentTheme, currentPieceTheme } = useChessSettings();
 
@@ -108,6 +106,19 @@ export default function LessonGameScreen() {
 
   useEffect(() => {
     initializeGame();
+
+    const loadVoiceMode = async () => {
+      const voiceMode = await AsyncStorage.getItem(USER_STORAGE_KEYS.VOICE_MODE);
+      setVoiceModeEnabled(voiceMode === "true");
+
+      if (voiceMode === "true" && objective) {
+        setTimeout(() => {
+          speak(`Lesson: ${title}. Objective: ${objective}`);
+        }, 1000);
+      }
+    };
+
+    loadVoiceMode();
   }, []);
 
   useEffect(() => {
@@ -118,10 +129,24 @@ export default function LessonGameScreen() {
 
   useEffect(() => {
     const status = checkGameStatus();
+    const playerMoveCount = Math.floor(gameStates.length / 2);
+
+    const isBasicLesson = objective?.toLowerCase().includes("move") ||
+                          objective?.toLowerCase().includes("different squares");
+
+    const isCaptureLesson = objective?.toLowerCase().includes("capture");
+
     if (status !== "playing") {
       handleCourseComplete();
+    } else if (isBasicLesson && playerMoveCount >= 1) {
+      handleCourseComplete();
+    } else if (isCaptureLesson && playerMoveCount >= 1) {
+      const currentPieceCount = game.board().flat().filter(p => p !== null).length;
+      if (currentPieceCount < 4) {
+        handleCourseComplete();
+      }
     }
-  }, [game]);
+  }, [game, gameStates.length]);
 
   useEffect(() => {
     const currentPlayerColor = "w";
@@ -159,6 +184,25 @@ export default function LessonGameScreen() {
     return () => backHandler.remove();
   }, [showPromotionModal, showCompletedModal]);
 
+  useEffect(() => {
+    const moves: Array<{ moveNumber: number; white: string; black?: string }> = [];
+    const history = game.history({ verbose: true });
+
+    for (let i = 0; i < history.length; i += 2) {
+      const moveNumber = Math.floor(i / 2) + 1;
+      const whiteMove = history[i];
+      const blackMove = history[i + 1];
+
+      moves.push({
+        moveNumber,
+        white: whiteMove.san,
+        black: blackMove?.san,
+      });
+    }
+
+    setMoveHistory(moves);
+  }, [gameStates.length]);
+
   const checkGameStatus = () => {
     if (game.isCheckmate()) {
       return "checkmate";
@@ -183,9 +227,12 @@ export default function LessonGameScreen() {
 
       setTimeout(() => {
         setShowCompletedModal(true);
+        if (voiceModeEnabled) {
+          speak(`Course Complete! You have successfully completed ${title}`);
+        }
       }, 1000);
     } catch (error) {
-      console.error("Error saving course completion:", error);
+      // Error saving completion
     }
   };
 
@@ -231,389 +278,25 @@ export default function LessonGameScreen() {
     setLastMove(null);
   };
 
-  const renderPiece = (piece: any) => {
-    if (!piece) return null;
-
-    let pieceSize = squareSize * 0.8;
-    if (currentPieceTheme.version === "v2") {
-      pieceSize = squareSize * 1.1;
-    }
-
-    return (
-      <PieceRenderer
-        type={piece.type}
-        color={piece.color}
-        theme={currentPieceTheme.version}
-        size={pieceSize}
-      />
-    );
-  };
-
-  const renderSquare = (
-    square: string,
-    piece: any,
-    rowIndex: number,
-    colIndex: number
-  ) => {
-    const squareStyle = getSquareStyle(
-      square,
-      rowIndex,
-      colIndex,
-      currentTheme.lightSquare,
-      currentTheme.darkSquare,
-      currentTheme.selectedSquare,
-      currentTheme.lastMoveSquare,
-      lastMove
-    );
-
-    return (
-      <TouchableOpacity
-        key={square}
-        style={{
-          width: squareSize,
-          height: squareSize,
-          backgroundColor: squareStyle.backgroundColor,
-          justifyContent: "center",
-          alignItems: "center",
-          position: "relative",
-          opacity: isWaitingForBot || isProcessingMove ? 0.7 : 1,
-        }}
-        onPress={() => handleSquarePress(square)}
-        disabled={isWaitingForBot || isProcessingMove}
-      >
-        {renderPiece(piece)}
-
-        {squareStyle.isPossibleMove && !piece && (
-          <View
-            style={{
-              width: squareSize * 0.3,
-              height: squareSize * 0.3,
-              borderRadius: squareSize * 0.15,
-              backgroundColor: "rgba(0, 0, 0, 0.3)",
-            }}
-          />
-        )}
-
-        {squareStyle.isPossibleMove && piece && (
-          <View
-            style={{
-              position: "absolute",
-              width: squareSize,
-              height: squareSize,
-              borderWidth: 3,
-              borderColor: "rgba(255, 0, 0, 0.7)",
-              borderRadius: 4,
-            }}
-          />
-        )}
-
-        {squareStyle.isKingInCheck && (
-          <View
-            style={{
-              position: "absolute",
-              width: squareSize,
-              height: squareSize,
-              backgroundColor: "rgba(255, 68, 68, 0.7)",
-              borderWidth: 4,
-              borderColor: "#ffffff",
-              borderRadius: 4,
-            }}
-          />
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  const renderFileLabels = () => {
-    const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
-
-    return (
-      <View
-        style={{ flexDirection: "row", justifyContent: "center", marginTop: 4 }}
-      >
-        <View style={{ width: coordinateSize }} />
-        {files.map((file) => (
-          <View
-            key={file}
-            style={{
-              width: squareSize,
-              height: coordinateSize,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontSize: 12, fontWeight: "600", color: "#666" }}>
-              {file}
-            </Text>
-          </View>
-        ))}
-        <View style={{ width: coordinateSize }} />
-      </View>
-    );
-  };
-
-  const renderRankLabels = () => {
-    const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
-
-    return (
-      <View style={{ justifyContent: "center", marginRight: 4 }}>
-        {ranks.map((rank) => (
-          <View
-            key={rank}
-            style={{
-              width: coordinateSize,
-              height: squareSize,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontSize: 12, fontWeight: "600", color: "#666" }}>
-              {rank}
-            </Text>
-          </View>
-        ))}
-      </View>
-    );
-  };
-
-  const renderBoard = () => {
-    const board = game.board();
-    const squares = [];
-
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = board[row][col];
-        const square = String.fromCharCode(97 + col) + (8 - row);
-        squares.push(renderSquare(square, piece, row, col));
+  const handleSquareTap = (square: string, piece: any) => {
+    if (voiceModeEnabled) {
+      if (piece) {
+        const pieceColor = piece.color === "w" ? "White" : "Black";
+        const pieceNames: Record<string, string> = {
+          p: "Pawn",
+          n: "Knight",
+          b: "Bishop",
+          r: "Rook",
+          q: "Queen",
+          k: "King",
+        };
+        const pieceName = pieceNames[piece.type] || "Piece";
+        speak(`${pieceColor} ${pieceName} on ${square}`);
+      } else {
+        speak(`Square ${square}`);
       }
     }
-
-    return (
-      <View style={{ alignItems: "center" }}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          {renderRankLabels()}
-          <View
-            style={{
-              width: boardSize,
-              height: boardSize,
-              flexDirection: "row",
-              flexWrap: "wrap",
-            }}
-          >
-            {squares}
-          </View>
-          <View style={{ justifyContent: "center", marginLeft: 4 }}>
-            {renderRankLabels().props.children}
-          </View>
-        </View>
-        {renderFileLabels()}
-      </View>
-    );
-  };
-
-  const renderSettingsModal = () => {
-    if (!showSettingsModal) return null;
-
-    return (
-      <Modal
-        visible={showSettingsModal}
-        transparent={true}
-        animationType="fade"
-      >
-        <View className="flex-1 bg-black/70 justify-center items-center">
-          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
-            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
-              Open Settings
-            </Text>
-            <Text className="text-base text-gray-600 text-center mb-6">
-              Opening settings might affect your current game progress. Are you
-              sure you want to continue?
-            </Text>
-            <View className="gap-3">
-              <TouchableOpacity
-                onPress={() => {
-                  setShowSettingsModal(false);
-                  router.replace("/settings");
-                }}
-                className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
-              >
-                <Text className="text-white text-lg font-semibold text-center">
-                  Yes, Open Settings
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setShowSettingsModal(false)}
-                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
-              >
-                <Text className="text-gray-700 text-lg font-medium text-center">
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  const renderBackModal = () => {
-    if (!showBackModal) return null;
-
-    return (
-      <Modal visible={showBackModal} transparent={true} animationType="fade">
-        <View className="flex-1 bg-black/70 justify-center items-center">
-          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
-            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
-              Quit Game
-            </Text>
-            <Text className="text-base text-gray-600 text-center mb-6">
-              Are you sure you want to quit? Your game progress will be lost.
-            </Text>
-            <View className="gap-3">
-              <TouchableOpacity
-                onPress={() => {
-                  setShowBackModal(false);
-                  router.replace("/lesson");
-                }}
-                className="bg-red-600 py-4 rounded-2xl shadow-lg active:bg-red-700"
-              >
-                <Text className="text-white text-lg font-semibold text-center">
-                  Quit Game
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setShowBackModal(false)}
-                className="bg-gray-100 py-4 rounded-2xl active:bg-gray-200"
-              >
-                <Text className="text-gray-700 text-lg font-medium text-center">
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  const renderHintModal = () => {
-    if (!showHintModal) return null;
-
-    return (
-      <Modal visible={showHintModal} transparent={true} animationType="fade">
-        <View className="flex-1 bg-black/70 justify-center items-center">
-          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl max-w-sm w-full">
-            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
-              Chess Hint
-            </Text>
-            <Text className="text-base text-gray-600 text-center mb-6 leading-relaxed">
-              {hintMessage}
-            </Text>
-            <TouchableOpacity
-              onPress={() => setShowHintModal(false)}
-              className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
-            >
-              <Text className="text-white text-lg font-semibold text-center">
-                Got it!
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  const renderCompletedModal = () => {
-    return (
-      <Modal
-        visible={showCompletedModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {}}
-      >
-        <View className="flex-1 bg-black/70 justify-center items-center">
-          <View className="bg-white rounded-3xl mx-6 p-8 shadow-2xl max-w-sm w-full">
-            <View className="items-center mb-6">
-              <Text className="text-2xl font-bold text-gray-900 text-center mb-2">
-                Course Complete!
-              </Text>
-              <Text className="text-lg text-gray-700 text-center leading-relaxed">
-                You have successfully completed "{title}"
-              </Text>
-            </View>
-            <View className="gap-3">
-              <TouchableOpacity
-                onPress={() => {
-                  setShowCompletedModal(false);
-                  router.back();
-                }}
-                className="bg-gray-900 py-4 rounded-2xl shadow-lg active:bg-gray-800"
-              >
-                <Text className="text-white text-lg font-semibold text-center">
-                  Continue Learning
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  const renderPromotionModal = () => {
-    if (!pendingPromotion) return null;
-
-    const promotionPieces = [
-      { type: "q", name: "Queen" },
-      { type: "r", name: "Rook" },
-      { type: "b", name: "Bishop" },
-      { type: "n", name: "Knight" },
-    ];
-
-    return (
-      <Modal
-        visible={showPromotionModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {}}
-      >
-        <View className="flex-1 bg-black/60 justify-center items-center">
-          <View className="bg-white rounded-3xl mx-6 p-6 shadow-2xl">
-            <Text className="text-xl font-bold text-gray-800 text-center mb-2">
-              Pawn Promotion
-            </Text>
-            <Text className="text-base text-gray-600 text-center mb-6">
-              Choose what piece your pawn becomes:
-            </Text>
-            <View className="flex-row gap-4 justify-around items-center m-4">
-              {promotionPieces.map((piece) => (
-                <TouchableOpacity
-                  key={piece.type}
-                  onPress={() => handlePromotion(piece.type as PromotionPiece)}
-                  className="items-center p-3 rounded-2xl bg-gray-50 border-2 border-gray-200 active:border-indigo-300"
-                  style={{ width: 80, height: 90 }}
-                >
-                  <View className="w-12 h-12 justify-center items-center mb-2">
-                    <PieceRenderer
-                      type={piece.type as any}
-                      color={pendingPromotion.color}
-                      theme={currentPieceTheme.version}
-                      size={48}
-                    />
-                  </View>
-                  <Text className="text-sm font-medium text-gray-700 text-center">
-                    {piece.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text className="text-xs text-gray-500 text-center">
-              Tap on a piece to promote your pawn
-            </Text>
-          </View>
-        </View>
-      </Modal>
-    );
+    handleSquarePress(square);
   };
 
   const currentPlayer = game.turn() === "w" ? "White" : "Black";
@@ -641,175 +324,112 @@ export default function LessonGameScreen() {
   const currentPlayerTurn = game.turn() === currentPlayerColor;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <StatusBar backgroundColor="#f9fafb" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: WCAGColors.primary.yellowBg }}>
+      <StatusBar backgroundColor={WCAGColors.primary.yellowBg} />
 
-      <View className="bg-white px-4 py-4 pt-14 shadow-sm">
-        <View className="flex-row items-center justify-between">
-          <TouchableOpacity
-            onPress={() => setShowBackModal(true)}
-            className="w-10 h-10 justify-center items-center"
-          >
-            <BackIcon height={30} width={30} />
-          </TouchableOpacity>
-          <View className="flex-1 items-center">
-            <Text className="text-lg font-semibold text-gray-800">{title}</Text>
-            <Text className="text-sm text-gray-500">
-              {isWaitingForBot
-                ? "Bot thinking..."
-                : isProcessingMove
-                ? "Processing voice..."
-                : `${currentPlayer} to move`}{" "}
-              • {currentTheme.name}
-            </Text>
+      <LessonGameHeader
+        title={title || ""}
+        currentPlayer={currentPlayer}
+        currentThemeName={currentTheme.name}
+        isWaitingForBot={isWaitingForBot}
+        isProcessingMove={isProcessingMove}
+        onBackPress={() => setShowBackModal(true)}
+        onSettingsPress={() => setShowSettingsModal(true)}
+      />
+
+      <LessonGameStatus
+        gameStatus={gameStatus}
+        currentPlayer={currentPlayer}
+        isWaitingForBot={isWaitingForBot}
+        isProcessingMove={isProcessingMove}
+        gameStatesLength={gameStates.length}
+        objective={objective || ""}
+        isInCheck={game.inCheck()}
+      />
+
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, backgroundColor: WCAGColors.primary.yellowBg }}>
+        <LessonChessBoard
+          game={game}
+          currentTheme={currentTheme}
+          currentPieceTheme={currentPieceTheme}
+          selectedSquare={selectedSquare}
+          possibleMoves={possibleMoves}
+          lastMove={lastMove}
+          isWaitingForBot={isWaitingForBot}
+          isProcessingMove={isProcessingMove}
+          voiceModeEnabled={voiceModeEnabled}
+          onSquarePress={handleSquareTap}
+          getSquareStyle={getSquareStyle}
+        />
+
+        {moveHistory.length > 0 && (
+          <View style={{ marginTop: 16, width: "100%" }}>
+            <MoveHistory moves={moveHistory} voiceModeEnabled={voiceModeEnabled} />
           </View>
-          <TouchableOpacity
-            onPress={() => setShowSettingsModal(true)}
-            className="w-10 h-10 justify-center items-center"
-          >
-            <Setting height={30} width={30} color="#000" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View className="px-4 py-3 bg-white border-b border-gray-100">
-        <View className="flex-row justify-between items-center">
-          <Text className="text-base font-medium text-gray-700">
-            {gameStatus === "playing"
-              ? isWaitingForBot
-                ? "Bot is thinking..."
-                : isProcessingMove
-                ? "Processing voice command..."
-                : `${currentPlayer}'s turn`
-              : "Game Over"}
-          </Text>
-          <Text className="text-sm text-gray-500">
-            Moves: {gameStates.length - 1} | Turn:{" "}
-            {Math.ceil(gameStates.length / 2)}
-          </Text>
-        </View>
-        <Text className="text-base font-medium text-gray-700 mt-2">
-          Objective: {objective}
-        </Text>
-        {game.inCheck() && gameStatus === "playing" && (
-          <Text className="text-red-600 font-medium mt-1">Check!</Text>
         )}
       </View>
 
-      <View className="flex-1 justify-center items-center px-4 py-4 bg-gray-100">
-        {renderBoard()}
-      </View>
+      <LessonGameControls
+        isVoiceDisabled={isVoiceDisabled}
+        currentPlayerTurn={currentPlayerTurn}
+        isProcessingMove={isProcessingMove}
+        canUndo={canUndo}
+        onQuitPress={() => setShowBackModal(true)}
+        onVoicePressIn={handleTouchStart}
+        onVoicePressOut={handleTouchEnd}
+        onHintPress={handleHintRequest}
+        onUndoPress={handleUndo}
+      />
 
-      <View className="bg-white px-4 py-6 border-t border-gray-100">
-        <View className="flex-row items-center justify-between">
-          <TouchableOpacity
-            onPress={() => setShowBackModal(true)}
-            className="items-center flex-1"
-            disabled={isVoiceDisabled}
-          >
-            <View
-              className={`w-12 h-12 items-center justify-center mb-2 ${
-                isVoiceDisabled ? "opacity-30" : ""
-              }`}
-            >
-              <FlagIcon width={30} height={30} />
-            </View>
-            <Text
-              className={`text-sm font-medium ${
-                isVoiceDisabled ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              Quit
-            </Text>
-          </TouchableOpacity>
+      <LessonBackModal
+        visible={showBackModal}
+        voiceModeEnabled={voiceModeEnabled}
+        onClose={() => setShowBackModal(false)}
+        onQuit={() => {
+          setShowBackModal(false);
+          router.back();
+        }}
+        onTextPress={(text) => voiceModeEnabled && speak(text)}
+      />
 
-          <View className="items-center flex-1">
-            <TouchableOpacity
-              disabled={!currentPlayerTurn || isVoiceDisabled}
-              onPressIn={
-                currentPlayerTurn && !isVoiceDisabled
-                  ? handleTouchStart
-                  : undefined
-              }
-              onPressOut={
-                currentPlayerTurn && !isVoiceDisabled
-                  ? handleTouchEnd
-                  : undefined
-              }
-              className="items-center"
-            >
-              <View
-                className={`w-16 h-16 ${
-                  !currentPlayerTurn || isVoiceDisabled
-                    ? "bg-gray-400"
-                    : isProcessingMove
-                    ? "bg-yellow-500"
-                    : "bg-indigo-600"
-                } rounded-full items-center justify-center mb-2 shadow-lg`}
-              >
-                <Mic height={24} width={24} color="white" />
-              </View>
-              <Text
-                className={`text-sm font-medium ${
-                  !currentPlayerTurn || isVoiceDisabled
-                    ? "text-gray-300"
-                    : "text-gray-600"
-                }`}
-              >
-                {isProcessingMove ? "Processing..." : "Voice"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+      <LessonHintModal
+        visible={showHintModal}
+        hintMessage={hintMessage}
+        voiceModeEnabled={voiceModeEnabled}
+        onClose={() => setShowHintModal(false)}
+        onTextPress={(text) => voiceModeEnabled && speak(text)}
+      />
 
-          <TouchableOpacity
-            onPress={handleHintRequest}
-            className="items-center flex-1"
-            disabled={isVoiceDisabled}
-          >
-            <View
-              className={`w-12 h-12 items-center justify-center mb-2 ${
-                isVoiceDisabled ? "opacity-30" : ""
-              }`}
-            >
-              <HintIcon width={30} height={30} />
-            </View>
-            <Text
-              className={`text-sm font-medium ${
-                isVoiceDisabled ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              Hint
-            </Text>
-          </TouchableOpacity>
+      <LessonSettingsModal
+        visible={showSettingsModal}
+        voiceModeEnabled={voiceModeEnabled}
+        onClose={() => setShowSettingsModal(false)}
+        onOpenSettings={() => {
+          setShowSettingsModal(false);
+          router.replace("/settings");
+        }}
+        onTextPress={(text) => voiceModeEnabled && speak(text)}
+      />
 
-          <TouchableOpacity
-            onPress={handleUndo}
-            disabled={!canUndo}
-            className="items-center flex-1"
-          >
-            <View
-              className={`w-12 h-12 items-center justify-center mb-2 ${
-                !canUndo ? "opacity-30" : ""
-              }`}
-            >
-              <UndoIcon width={30} height={30} />
-            </View>
-            <Text
-              className={`text-sm font-medium ${
-                !canUndo ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              Undo
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <LessonCompleteModal
+        visible={showCompletedModal}
+        title={title || ""}
+        voiceModeEnabled={voiceModeEnabled}
+        onClose={() => {
+          setShowCompletedModal(false);
+          router.back();
+        }}
+        onTextPress={(text) => voiceModeEnabled && speak(text)}
+      />
 
-      {renderBackModal()}
-      {renderHintModal()}
-      {renderSettingsModal()}
-      {renderCompletedModal()}
-      {renderPromotionModal()}
+      <LessonPromotionModal
+        visible={showPromotionModal}
+        pendingPromotion={pendingPromotion}
+        currentPieceTheme={currentPieceTheme}
+        voiceModeEnabled={voiceModeEnabled}
+        onPromote={handlePromotion}
+        onTextPress={(text) => voiceModeEnabled && speak(text)}
+      />
     </SafeAreaView>
   );
 }

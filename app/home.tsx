@@ -81,7 +81,7 @@ const generateLessonPath = (progress: Record<string, boolean>): LessonNode[] => 
         type: "lesson",
         locked: !isUnlocked,
         completed: isCompleted,
-        stars: isCompleted ? 3 : 0,
+        stars: isUnlocked && !isCompleted ? 3 : 0,
         progress: isCompleted ? 100 : 0,
         x: xPosition,
         y: currentY,
