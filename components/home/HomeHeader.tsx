@@ -1,59 +1,164 @@
-import { User } from "@supabase/supabase-js";
 import React from "react";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
+import { WCAGColors, AccessibilitySizes } from "@/constants/wcagColors";
 
 interface HomeHeaderProps {
-  user: User | null;
-  onSignOut: () => void;
+  userName: string;
+  completedCount: number;
+  totalLessons: number;
+  onTextPress: (text: string) => void;
+  onProfilePress: () => void;
 }
 
-export const HomeHeader: React.FC<HomeHeaderProps> = ({ user, onSignOut }) => {
-  const ProfileImage = () => {
-    const photoUrl =
-      user?.user_metadata?.picture || user?.user_metadata?.avatar_url;
-    const userName =
-      user?.user_metadata?.name || user?.user_metadata?.full_name || "Guest";
-
-    if (photoUrl) {
-      return (
-        <Image
-          source={{ uri: photoUrl }}
-          className="w-10 h-10 rounded-full"
-          resizeMode="cover"
-        />
-      );
-    }
-
-    return (
-      <View className="w-10 h-10 rounded-full bg-white/20 justify-center items-center">
-        <Text className="text-white font-semibold text-lg">
-          {userName.charAt(0).toUpperCase()}
-        </Text>
-      </View>
-    );
-  };
-
+export const HomeHeader: React.FC<HomeHeaderProps> = ({
+  userName,
+  completedCount,
+  totalLessons,
+  onTextPress,
+  onProfilePress,
+}) => {
   return (
-    <View className="px-6 pt-10">
-      <View className="flex-row justify-between items-center mb-6">
-        <View className="flex-row items-center">
-          <View className="mr-3">
-            <ProfileImage />
-          </View>
-          <View>
-            <Text className="text-white/80 text-sm">
-              Hi {user?.user_metadata?.name?.split(" ")[0] || "Guest"}
-            </Text>
-            <Text className="text-white text-lg font-semibold">Welcome</Text>
-          </View>
-        </View>
+    <View
+      style={{
+        paddingHorizontal: AccessibilitySizes.spacing.lg,
+        paddingTop: AccessibilitySizes.spacing.md,
+        paddingBottom: AccessibilitySizes.spacing.md,
+        backgroundColor: WCAGColors.neutral.white,
+        borderBottomLeftRadius: AccessibilitySizes.radius.xl,
+        borderBottomRightRadius: AccessibilitySizes.radius.xl,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        elevation: 4,
+      }}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        }}
+      >
         <TouchableOpacity
-          onPress={onSignOut}
-          className="bg-white/20 px-4 py-2 rounded-xl"
+          style={{ flex: 1 }}
+          onPress={() => onTextPress(`Hello, ${userName}`)}
+          activeOpacity={0.8}
         >
-          <Text className="text-white font-medium">Logout</Text>
+          <Text
+            style={{
+              fontSize: AccessibilitySizes.text.lg,
+              fontWeight: AccessibilitySizes.fontWeight.semibold,
+              color: WCAGColors.neutral.gray600,
+            }}
+          >
+            Hello,
+          </Text>
+          <Text
+            style={{
+              fontSize: AccessibilitySizes.text.xxl,
+              fontWeight: AccessibilitySizes.fontWeight.bold,
+              color: WCAGColors.neutral.gray900,
+            }}
+          >
+            {userName}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={onProfilePress}
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 26,
+            backgroundColor: WCAGColors.primary.yellow,
+            justifyContent: "center",
+            alignItems: "center",
+            borderWidth: 3,
+            borderColor: WCAGColors.primary.yellowLight,
+          }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="View profile"
+        >
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: AccessibilitySizes.fontWeight.bold,
+              color: WCAGColors.neutral.white,
+            }}
+          >
+            {userName.charAt(0).toUpperCase()}
+          </Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() =>
+          onTextPress(
+            `You have completed ${completedCount} out of ${totalLessons} lessons`
+          )
+        }
+        style={{
+          backgroundColor: WCAGColors.primary.yellowBg,
+          borderRadius: AccessibilitySizes.radius.md,
+          padding: 14,
+          flexDirection: "row",
+          justifyContent: "space-around",
+          borderWidth: 2,
+          borderColor: WCAGColors.primary.yellowLight,
+        }}
+      >
+        <View style={{ alignItems: "center" }}>
+          <Text
+            style={{
+              fontSize: 24,
+              fontWeight: AccessibilitySizes.fontWeight.bold,
+              color: WCAGColors.primary.yellow,
+            }}
+          >
+            {completedCount}
+          </Text>
+          <Text
+            style={{
+              fontSize: 12,
+              color: WCAGColors.neutral.gray600,
+              marginTop: 2,
+            }}
+          >
+            Completed
+          </Text>
+        </View>
+        <View
+          style={{
+            width: 1,
+            backgroundColor: WCAGColors.primary.yellowLight,
+          }}
+        />
+        <View style={{ alignItems: "center" }}>
+          <Text
+            style={{
+              fontSize: 24,
+              fontWeight: AccessibilitySizes.fontWeight.bold,
+              color: WCAGColors.primary.yellow,
+            }}
+          >
+            {totalLessons}
+          </Text>
+          <Text
+            style={{
+              fontSize: 12,
+              color: WCAGColors.neutral.gray600,
+              marginTop: 2,
+            }}
+          >
+            Total Lessons
+          </Text>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 };

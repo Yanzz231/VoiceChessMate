@@ -32,7 +32,7 @@ export const useVoiceNavigation = (options: UseVoiceNavigationOptions = {}) => {
           router.push("/play");
           break;
         case "lesson":
-          router.push("/lesson");
+          router.push("/home");
           break;
         case "analyze":
           router.push("/analyze");

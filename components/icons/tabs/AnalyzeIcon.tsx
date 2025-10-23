@@ -14,26 +14,13 @@ export const AnalyzeIcon: React.FC<AnalyzeIconProps> = ({
 }) => {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {focused ? (
-        <>
-          <Path
-            d="M18 20V10M12 20V4M6 20V14"
-            stroke={color}
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill={color}
-          />
-        </>
-      ) : (
-        <Path
-          d="M18 20V10M12 20V4M6 20V14"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      )}
+      <Path
+        d="M18 20V10M12 20V4M6 20V14"
+        stroke={color}
+        strokeWidth={focused ? "2.5" : "2"}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 };
