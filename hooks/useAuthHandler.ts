@@ -4,10 +4,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert } from "react-native";
 
 export const useAuthHandler = () => {
   const [loading, setLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
+
+  const showError = (title: string, message: string) => {
+    setErrorModal({ visible: true, title, message });
+  };
+
+  const hideError = () => {
+    setErrorModal({ visible: false, title: '', message: '' });
+  };
 
   useEffect(() => {
     const handleDeepLink = async (event: { url: string }) => {
@@ -34,15 +42,12 @@ export const useAuthHandler = () => {
             });
 
             if (error) {
-              Alert.alert("Masuk Gagal", error.message);
+              showError("Masuk Gagal", error.message);
               return;
             }
             sessionData = data.session;
           } else {
-            Alert.alert(
-              "Kesalahan Autentikasi",
-              "Parameter callback tidak valid"
-            );
+            showError("Kesalahan Autentikasi", "Parameter callback tidak valid");
             return;
           }
         } else {
@@ -51,7 +56,7 @@ export const useAuthHandler = () => {
           );
 
           if (error) {
-            Alert.alert("Masuk Gagal", error.message);
+            showError("Masuk Gagal", error.message);
             return;
           }
           sessionData = data.session;
@@ -70,10 +75,7 @@ export const useAuthHandler = () => {
           }
         }
       } catch (err) {
-        Alert.alert(
-          "Kesalahan Autentikasi",
-          "Terjadi kesalahan saat proses masuk"
-        );
+        showError("Kesalahan Autentikasi", "Terjadi kesalahan saat proses masuk");
       } finally {
         setLoading(false);
       }
@@ -114,13 +116,13 @@ export const useAuthHandler = () => {
       });
 
       if (error) {
-        Alert.alert("Masuk Gagal", error.message);
+        showError("Masuk Gagal", error.message);
         setLoading(false);
       } else if (data?.url) {
         await Linking.openURL(data.url);
       }
     } catch (err) {
-      Alert.alert("Kesalahan Autentikasi", "Gagal memulai proses masuk");
+      showError("Kesalahan Autentikasi", "Gagal memulai proses masuk");
       setLoading(false);
     }
   };
@@ -128,5 +130,7 @@ export const useAuthHandler = () => {
   return {
     loading,
     handleSignInPress,
+    errorModal,
+    hideError,
   };
 };

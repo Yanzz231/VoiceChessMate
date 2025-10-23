@@ -1,17 +1,18 @@
 import { LoginForm } from "@/components/auth/LoginForm";
-import { LoginHeader } from "@/components/auth/LoginHeader";
 import { ExitConfirmationModal } from "@/components/ExitConfirmationModal";
+import { ErrorModal } from "@/components/modals/ErrorModal";
+import { WCAGColors } from "@/constants/wcagColors";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthHandler } from "@/hooks/useAuthHandler";
 import { useExitHandler } from "@/hooks/useExitHandler";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, StatusBar, View } from "react-native";
+import { StatusBar } from "react-native";
 
 const LoginScreen = () => {
   const { isAuthenticated } = useAuth();
-  const { loading, handleSignInPress } = useAuthHandler();
+  const { loading, handleSignInPress, errorModal, hideError } = useAuthHandler();
   const [isVoice, setIsVoice] = useState(true);
 
   const { showExitModal, handleStayHere, handleExit, appName } = useExitHandler(
@@ -33,16 +34,14 @@ const LoginScreen = () => {
   }, [isVoice]);
 
   return (
-    <SafeAreaView className="flex-1">
-      <StatusBar barStyle="light-content" backgroundColor="#6366F1" />
-      <LinearGradient colors={["#6366F1", "#8B5CF6"]} className="flex-1">
-        <View className="flex-1 justify-between">
-          <LoginHeader />
-
-          <View className="flex-[0.4] justify-end">
-            <LoginForm loading={loading} onSignInPress={handleSignInPress} />
-          </View>
-        </View>
+    <>
+      <StatusBar barStyle="light-content" backgroundColor={WCAGColors.primary.yellow} />
+      <LinearGradient
+        colors={[WCAGColors.primary.yellowLight, WCAGColors.primary.yellow, WCAGColors.primary.yellowDark]}
+        locations={[0, 0.5, 1]}
+        style={{ flex: 1 }}
+      >
+        <LoginForm loading={loading} onSignInPress={handleSignInPress} />
       </LinearGradient>
 
       <ExitConfirmationModal
@@ -51,7 +50,14 @@ const LoginScreen = () => {
         onStayHere={handleStayHere}
         onExit={handleExit}
       />
-    </SafeAreaView>
+
+      <ErrorModal
+        visible={errorModal.visible}
+        title={errorModal.title}
+        message={errorModal.message}
+        onClose={hideError}
+      />
+    </>
   );
 };
 
