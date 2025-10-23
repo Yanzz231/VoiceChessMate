@@ -62,7 +62,8 @@
           "savePhotosPermission": "This app saves captured photos to your gallery.",
           "isAccessMediaLocationEnabled": true
         }
-      ]
+      ],
+      "expo-speech-recognition"
     ],
     "experiments": {
       "typedRoutes": true

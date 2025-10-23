@@ -7,7 +7,6 @@ import { useCallback } from "react";
 interface VoiceChessConfig {
   game: Chess;
   onMoveComplete: (move: any, newGame: Chess) => void;
-  apiKey?: string;
   language?: string;
   longPressThreshold?: number;
 }
@@ -15,8 +14,7 @@ interface VoiceChessConfig {
 export const useVoiceChess = ({
   game,
   onMoveComplete,
-  apiKey = "37c72e8e5dd344939db0183d6509ceec",
-  language = "id",
+  language = "id-ID",
   longPressThreshold = 1000,
 }: VoiceChessConfig) => {
   const { isProcessingMove, processVoiceMove } = useVoiceChessMove({
@@ -26,11 +24,22 @@ export const useVoiceChess = ({
 
   const handleTranscriptComplete = useCallback(
     async (result: any) => {
-      if (result?.text) {
+      console.log("Transcript result:", result);
+
+      if (result?.text && result.text.trim()) {
         const transcriptText = result.text.trim();
+        console.log("Processing transcript:", transcriptText);
         await processVoiceMove(transcriptText);
+      } else if (result?.success === false) {
+        console.error("Speech service error:", result.error);
+        Speech.speak(result.error || "Speech recognition failed", {
+          language: "en-US",
+          pitch: 1.0,
+          rate: 0.9,
+        });
       } else {
-        Speech.speak("Command not understood", {
+        console.warn("No transcript text received");
+        Speech.speak("No speech detected. Please try again", {
           language: "en-US",
           pitch: 1.0,
           rate: 0.9,
@@ -41,7 +50,6 @@ export const useVoiceChess = ({
   );
 
   const { handleTouchStart, handleTouchEnd, cleanup } = useVoiceRecording({
-    apiKey,
     language,
     longPressThreshold,
     onTranscriptComplete: handleTranscriptComplete,

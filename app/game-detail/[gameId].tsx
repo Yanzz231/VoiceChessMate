@@ -129,8 +129,7 @@ export default function GameDetailScreen() {
   );
 
   const { handleTouchStart, handleTouchEnd, cleanup } = useVoiceRecording({
-    apiKey: "37c72e8e5dd344939db0183d6509ceec",
-    language: "id",
+    language: "id-ID",
     longPressThreshold: 1000,
     onTranscriptComplete: handleTranscriptComplete,
   });

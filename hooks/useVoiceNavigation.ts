@@ -1,25 +1,23 @@
 import { useRouter } from "expo-router";
-import { useCallback } from "react";
-
-interface ChatResponse {
-  response: string;
-  screen: string;
-  error?: string;
-}
+import { useCallback, useRef, useEffect } from "react";
+import { GeminiNavigationService } from "@/services/GeminiNavigationService";
 
 interface UseVoiceNavigationOptions {
-  apiUrl?: string;
   onNavigationStart?: (screen: string) => void;
   onNavigationError?: (error: string) => void;
 }
 
 export const useVoiceNavigation = (options: UseVoiceNavigationOptions = {}) => {
   const router = useRouter();
-  const {
-    apiUrl = "https://voicechessmatebe-production.up.railway.app/api/chat/gemini",
-    onNavigationStart,
-    onNavigationError,
-  } = options;
+  const { onNavigationStart, onNavigationError } = options;
+
+  const navigationService = useRef<GeminiNavigationService | null>(null);
+
+  useEffect(() => {
+    navigationService.current = new GeminiNavigationService(
+      "AIzaSyB1YPGmB2yJ_qfoKH5mVcWreRWaf0g7aIk"
+    );
+  }, []);
 
   const navigateToScreen = useCallback(
     (screen: string) => {
@@ -57,45 +55,38 @@ export const useVoiceNavigation = (options: UseVoiceNavigationOptions = {}) => {
         return;
       }
 
+      if (!navigationService.current) {
+        onNavigationError?.("Navigation service not initialized");
+        return;
+      }
+
       try {
-        console.log(
-          `Processing voice command: "${message.replace("Voice active.", "")}"`
+        const cleanMessage = message
+          .replace("Voice active.", "")
+          .replace("Listening", "")
+          .trim();
+
+        console.log(`Processing voice command: "${cleanMessage}"`);
+
+        const result = await navigationService.current.determineScreen(
+          cleanMessage
         );
 
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: message.trim().replace("Voice active.", ""),
-          }),
-        });
+        console.log("Navigation result:", result);
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result: ChatResponse = await response.json();
-
-        if (result.error) {
-          console.error("API Error:", result.error);
-          onNavigationError?.(result.error);
-          return;
-        }
-
-        if (result.screen) {
+        if (result.success && result.screen) {
           navigateToScreen(result.screen);
         } else {
-          onNavigationError?.(`No destination determined`);
+          onNavigationError?.(result.error || "Could not determine destination");
         }
       } catch (error) {
+        console.error("Voice navigation error:", error);
         onNavigationError?.(
           error instanceof Error ? error.message : "Unknown error"
         );
       }
     },
-    [apiUrl, navigateToScreen, onNavigationError]
+    [navigateToScreen, onNavigationError]
   );
 
   return {
