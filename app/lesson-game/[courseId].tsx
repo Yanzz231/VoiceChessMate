@@ -324,8 +324,8 @@ export default function LessonGameScreen() {
   const currentPlayerTurn = game.turn() === currentPlayerColor;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: WCAGColors.primary.yellowBg }}>
-      <StatusBar backgroundColor={WCAGColors.primary.yellowBg} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: WCAGColors.neutral.gray50 }}>
+      <StatusBar backgroundColor={WCAGColors.primary.yellow} />
 
       <LessonGameHeader
         title={title || ""}
@@ -335,38 +335,44 @@ export default function LessonGameScreen() {
         isProcessingMove={isProcessingMove}
         onBackPress={() => setShowBackModal(true)}
         onSettingsPress={() => setShowSettingsModal(true)}
+        voiceModeEnabled={voiceModeEnabled}
+        onTextPress={(text) => voiceModeEnabled && speak(text)}
       />
 
-      <LessonGameStatus
-        gameStatus={gameStatus}
-        currentPlayer={currentPlayer}
-        isWaitingForBot={isWaitingForBot}
-        isProcessingMove={isProcessingMove}
-        gameStatesLength={gameStates.length}
-        objective={objective || ""}
-        isInCheck={game.inCheck()}
-      />
-
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, backgroundColor: WCAGColors.primary.yellowBg }}>
-        <LessonChessBoard
-          game={game}
-          currentTheme={currentTheme}
-          currentPieceTheme={currentPieceTheme}
-          selectedSquare={selectedSquare}
-          possibleMoves={possibleMoves}
-          lastMove={lastMove}
+      <View style={{ flex: 1, backgroundColor: WCAGColors.neutral.gray50 }}>
+        <LessonGameStatus
+          gameStatus={gameStatus}
+          currentPlayer={currentPlayer}
           isWaitingForBot={isWaitingForBot}
           isProcessingMove={isProcessingMove}
+          gameStatesLength={gameStates.length}
+          objective={objective || ""}
+          isInCheck={game.inCheck()}
           voiceModeEnabled={voiceModeEnabled}
-          onSquarePress={handleSquareTap}
-          getSquareStyle={getSquareStyle}
+          onTextPress={(text) => voiceModeEnabled && speak(text)}
         />
 
-        {moveHistory.length > 0 && (
-          <View style={{ marginTop: 16, width: "100%" }}>
-            <MoveHistory moves={moveHistory} voiceModeEnabled={voiceModeEnabled} />
-          </View>
-        )}
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16, paddingBottom: 8 }}>
+          <LessonChessBoard
+            game={game}
+            currentTheme={currentTheme}
+            currentPieceTheme={currentPieceTheme}
+            selectedSquare={selectedSquare}
+            possibleMoves={possibleMoves}
+            lastMove={lastMove}
+            isWaitingForBot={isWaitingForBot}
+            isProcessingMove={isProcessingMove}
+            voiceModeEnabled={voiceModeEnabled}
+            onSquarePress={handleSquareTap}
+            getSquareStyle={getSquareStyle}
+          />
+
+          {moveHistory.length > 0 && (
+            <View style={{ marginTop: 16, width: "100%", paddingHorizontal: 4 }}>
+              <MoveHistory moves={moveHistory} voiceModeEnabled={voiceModeEnabled} />
+            </View>
+          )}
+        </View>
       </View>
 
       <LessonGameControls

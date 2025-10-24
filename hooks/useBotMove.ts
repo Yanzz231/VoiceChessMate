@@ -2,6 +2,7 @@ import { userService } from "@/services/userService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Chess, Square } from "chess.js";
 import * as Speech from "expo-speech";
+import { Audio } from "expo-av";
 import { useCallback, useState } from "react";
 
 interface BotMoveOptions {
@@ -29,6 +30,20 @@ export const useBotMove = (audioSettings?: AudioSettings) => {
     rate: 0.8,
     ...audioSettings,
   };
+
+  const playBotMoveSound = useCallback(async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" },
+        { shouldPlay: true, volume: 0.5 }
+      );
+      setTimeout(() => {
+        sound.unloadAsync();
+      }, 1000);
+    } catch (error) {
+      console.warn("Could not play bot move sound:", error);
+    }
+  }, []);
 
   const mapDifficultyToBotLevel = useCallback((difficulty: string): string => {
     switch (difficulty) {
@@ -177,6 +192,8 @@ export const useBotMove = (audioSettings?: AudioSettings) => {
                   setTimeout(() => {
                     announceBotMove(from, to, newGame, isCapture);
                   }, 300);
+                } else {
+                  playBotMoveSound();
                 }
 
                 if (onMoveComplete) {
@@ -200,6 +217,8 @@ export const useBotMove = (audioSettings?: AudioSettings) => {
               result.isCapture
             );
           }, 300);
+        } else if (result) {
+          playBotMoveSound();
         }
 
         if (result && onMoveComplete) {
@@ -219,7 +238,7 @@ export const useBotMove = (audioSettings?: AudioSettings) => {
         setIsWaitingForBot(false);
       }
     },
-    [mapDifficultyToBotLevel, makeRandomMove, announceBotMove]
+    [mapDifficultyToBotLevel, makeRandomMove, announceBotMove, playBotMoveSound]
   );
 
   const stopSpeech = useCallback(() => {
