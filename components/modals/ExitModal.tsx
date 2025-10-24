@@ -41,7 +41,7 @@ export const ExitModal: React.FC<ExitModalProps> = ({
       <View
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.75)",
+          backgroundColor: "transparent",
           justifyContent: "center",
           alignItems: "center",
         }}

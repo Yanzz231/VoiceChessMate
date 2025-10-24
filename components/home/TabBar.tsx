@@ -1,13 +1,24 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, TouchableOpacity, Text } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Speech from "expo-speech";
 import { WCAGColors, AccessibilitySizes } from "@/constants/wcagColors";
+import { USER_STORAGE_KEYS } from "@/constants/storageKeys";
 import { HomeIcon } from "@/components/icons/tabs/HomeIcon";
 import { PlayIcon } from "@/components/icons/tabs/PlayIcon";
 import { ScanIcon } from "@/components/icons/tabs/ScanIcon";
 import { AnalyzeIcon } from "@/components/icons/tabs/AnalyzeIcon";
 import { SettingsIcon } from "@/components/icons/tabs/SettingsIcon";
+import Svg, { Path, Circle } from "react-native-svg";
 
-type TabType = "home" | "play" | "scan" | "analyze" | "settings";
+const ProfileIcon = ({ size = 24, color = WCAGColors.neutral.gray600, focused = false }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="8" r="4" stroke={color} strokeWidth="2" fill={focused ? color : "none"} fillOpacity={focused ? 0.2 : 0} />
+    <Path d="M6 21V19C6 16.7909 7.79086 15 10 15H14C16.2091 15 18 16.7909 18 19V21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+);
+
+type TabType = "home" | "play" | "scan" | "analyze" | "profile";
 
 interface TabBarProps {
   activeTab: TabType;
@@ -15,6 +26,50 @@ interface TabBarProps {
 }
 
 export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabPress }) => {
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  const [ttsSpeed, setTtsSpeed] = useState(1.0);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const voiceMode = await AsyncStorage.getItem(USER_STORAGE_KEYS.VOICE_MODE);
+      const speed = await AsyncStorage.getItem("tts_speed");
+      setVoiceModeEnabled(voiceMode === "true");
+      setTtsSpeed(speed ? parseFloat(speed) : 1.0);
+    };
+    loadSettings();
+  }, []);
+
+  const handleTabPress = async (tab: TabType) => {
+    if (voiceModeEnabled) {
+      const speed = await AsyncStorage.getItem("tts_speed");
+      const rate = speed ? parseFloat(speed) : 1.0;
+
+      let message = "";
+      switch (tab) {
+        case "home":
+          message = "Going to Home page";
+          break;
+        case "play":
+          message = "Going to Play with AI";
+          break;
+        case "scan":
+          message = "Going to Scan";
+          break;
+        case "analyze":
+          message = "Going to Analyze";
+          break;
+        case "profile":
+          message = "Going to Profile";
+          break;
+      }
+
+      if (message) {
+        Speech.speak(message, { rate });
+      }
+    }
+    onTabPress(tab);
+  };
+
   return (
     <View
       style={{
@@ -44,7 +99,7 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabPress }) => {
         }}
       >
         <TouchableOpacity
-          onPress={() => onTabPress("home")}
+          onPress={() => handleTabPress("home")}
           style={{
             flex: 1,
             alignItems: "center",
@@ -82,7 +137,7 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabPress }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => onTabPress("play")}
+          onPress={() => handleTabPress("play")}
           style={{
             flex: 1,
             alignItems: "center",
@@ -126,7 +181,7 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabPress }) => {
           }}
         >
           <TouchableOpacity
-            onPress={() => onTabPress("scan")}
+            onPress={() => handleTabPress("scan")}
             style={{
               marginTop: -38,
             }}
@@ -161,7 +216,7 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabPress }) => {
         </View>
 
         <TouchableOpacity
-          onPress={() => onTabPress("analyze")}
+          onPress={() => handleTabPress("analyze")}
           style={{
             flex: 1,
             alignItems: "center",
@@ -199,7 +254,7 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabPress }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => onTabPress("settings")}
+          onPress={() => handleTabPress("profile")}
           style={{
             flex: 1,
             alignItems: "center",
@@ -207,32 +262,32 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabPress }) => {
           }}
           accessible={true}
           accessibilityRole="button"
-          accessibilityLabel="Settings"
+          accessibilityLabel="Profile"
         >
-          <SettingsIcon
+          <ProfileIcon
             size={26}
             color={
-              activeTab === "settings"
+              activeTab === "profile"
                 ? WCAGColors.primary.yellow
                 : WCAGColors.neutral.gray600
             }
-            focused={activeTab === "settings"}
+            focused={activeTab === "profile"}
           />
           <Text
             style={{
               fontSize: 11,
               marginTop: 5,
               color:
-                activeTab === "settings"
+                activeTab === "profile"
                   ? WCAGColors.primary.yellow
                   : WCAGColors.neutral.gray600,
               fontWeight:
-                activeTab === "settings"
+                activeTab === "profile"
                   ? AccessibilitySizes.fontWeight.bold
                   : AccessibilitySizes.fontWeight.normal,
             }}
           >
-            Settings
+            Profile
           </Text>
         </TouchableOpacity>
       </View>

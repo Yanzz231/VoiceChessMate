@@ -412,7 +412,7 @@ export default function LessonGameScreen() {
         onClose={() => setShowSettingsModal(false)}
         onOpenSettings={() => {
           setShowSettingsModal(false);
-          router.replace("/settings");
+          router.push({ pathname: "/profile", params: { tab: "themes" } });
         }}
         onTextPress={(text) => voiceModeEnabled && speak(text)}
       />

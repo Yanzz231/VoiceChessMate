@@ -1,4 +1,5 @@
 import * as Speech from 'expo-speech';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const speak = async (text: string, options?: Speech.SpeechOptions) => {
   try {
@@ -7,8 +8,12 @@ export const speak = async (text: string, options?: Speech.SpeechOptions) => {
       await Speech.stop();
     }
 
+    const speedStr = await AsyncStorage.getItem('tts_speed');
+    const rate = speedStr ? parseFloat(speedStr) : 1.0;
+
     Speech.speak(text, {
       language: 'en-US',
+      rate: rate,
       ...options,
     });
   } catch (error) {

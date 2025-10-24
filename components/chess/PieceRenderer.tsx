@@ -32,7 +32,7 @@ export const PieceRenderer: React.FC<PieceRendererProps> = ({
   size,
 }) => {
   const fillColor = color === "w" ? "#FFFFFF" : "#000000";
-  const strokeColor = color === "w" ? "#000000" : "#FFFFFF";
+  const strokeColor = color === "w" ? "#FFFFFF" : "#000000";
 
   const props = {
     width: size,

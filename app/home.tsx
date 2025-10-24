@@ -108,7 +108,7 @@ const calculatePathHeight = (nodes: LessonNode[]): number => {
   return maxY + 200;
 };
 
-type TabType = "home" | "play" | "scan" | "analyze" | "settings";
+type TabType = "home" | "play" | "scan" | "analyze" | "profile";
 
 export default function Home() {
   const { user } = useAuth();
@@ -243,8 +243,8 @@ export default function Home() {
         case "analyze":
           speak("Analyze");
           break;
-        case "settings":
-          speak("Settings");
+        case "profile":
+          speak("Profile");
           break;
       }
     }
@@ -259,8 +259,8 @@ export default function Home() {
       case "analyze":
         router.push("/analyze");
         break;
-      case "settings":
-        router.push("/settings");
+      case "profile":
+        router.push("/profile");
         break;
     }
   };
@@ -275,11 +275,15 @@ export default function Home() {
 
     setSelectedLesson(lesson);
     setShowLessonModal(true);
-    speak(`${lesson.title}. ${lesson.description}.`);
+    if (voiceModeEnabled) {
+      speak(`${lesson.title}. ${lesson.description}.`);
+    }
   };
 
   const handleTextPress = (text: string) => {
-    speak(text);
+    if (voiceModeEnabled) {
+      speak(text);
+    }
   };
 
   const handleProfilePress = () => {
@@ -325,6 +329,8 @@ export default function Home() {
 
   useFocusEffect(
     React.useCallback(() => {
+      setActiveTab("home");
+
       const backHandler = BackHandler.addEventListener(
         "hardwareBackPress",
         backAction
