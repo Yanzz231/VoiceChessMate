@@ -1,7 +1,8 @@
-import React from "react";
-import { View, Text, TouchableOpacity, Dimensions } from "react-native";
+import React, { useRef } from "react";
+import { View, Text, TouchableOpacity, Dimensions, PanResponder } from "react-native";
 import { Chess } from "chess.js";
 import { PieceRenderer } from "@/components/chess/PieceRenderer";
+import { speak } from "@/utils/speechUtils";
 
 const { width } = Dimensions.get("window");
 const boardSize = width - 64;
@@ -44,6 +45,96 @@ export const LessonChessBoard: React.FC<LessonChessBoardProps> = ({
   onSquarePress,
   getSquareStyle,
 }) => {
+  const lastAnnouncedSquare = useRef<string | null>(null);
+  const boardLayoutRef = useRef<{ x: number; y: number } | null>(null);
+
+  const getSquareFromPosition = (x: number, y: number): string | null => {
+    if (!boardLayoutRef.current) return null;
+
+    const relativeX = x - boardLayoutRef.current.x;
+    const relativeY = y - boardLayoutRef.current.y;
+
+    if (relativeX < 0 || relativeX > boardSize || relativeY < 0 || relativeY > boardSize) {
+      return null;
+    }
+
+    const col = Math.floor(relativeX / squareSize);
+    const row = Math.floor(relativeY / squareSize);
+
+    if (col < 0 || col > 7 || row < 0 || row > 7) return null;
+
+    const file = String.fromCharCode(97 + col);
+    const rank = 8 - row;
+
+    return `${file}${rank}`;
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => voiceModeEnabled,
+      onMoveShouldSetPanResponder: () => voiceModeEnabled,
+      onPanResponderGrant: (evt) => {
+        if (!voiceModeEnabled) return;
+        const { pageX, pageY } = evt.nativeEvent;
+        const square = getSquareFromPosition(pageX, pageY);
+        if (square) {
+          lastAnnouncedSquare.current = square;
+          const board = game.board();
+          const row = 8 - parseInt(square[1]);
+          const col = square.charCodeAt(0) - 97;
+          const piece = board[row][col];
+
+          if (piece) {
+            const pieceColor = piece.color === "w" ? "White" : "Black";
+            const pieceNames: Record<string, string> = {
+              p: "Pawn",
+              n: "Knight",
+              b: "Bishop",
+              r: "Rook",
+              q: "Queen",
+              k: "King",
+            };
+            const pieceName = pieceNames[piece.type] || "Piece";
+            speak(`${pieceColor} ${pieceName} on ${square}`);
+          } else {
+            speak(`Square ${square}`);
+          }
+        }
+      },
+      onPanResponderMove: (evt) => {
+        if (!voiceModeEnabled) return;
+        const { pageX, pageY } = evt.nativeEvent;
+        const square = getSquareFromPosition(pageX, pageY);
+        if (square && square !== lastAnnouncedSquare.current) {
+          lastAnnouncedSquare.current = square;
+          const board = game.board();
+          const row = 8 - parseInt(square[1]);
+          const col = square.charCodeAt(0) - 97;
+          const piece = board[row][col];
+
+          if (piece) {
+            const pieceColor = piece.color === "w" ? "White" : "Black";
+            const pieceNames: Record<string, string> = {
+              p: "Pawn",
+              n: "Knight",
+              b: "Bishop",
+              r: "Rook",
+              q: "Queen",
+              k: "King",
+            };
+            const pieceName = pieceNames[piece.type] || "Piece";
+            speak(`${pieceColor} ${pieceName} on ${square}`);
+          } else {
+            speak(`Square ${square}`);
+          }
+        }
+      },
+      onPanResponderRelease: () => {
+        lastAnnouncedSquare.current = null;
+      },
+    })
+  ).current;
+
   const renderPiece = (piece: any) => {
     if (!piece) return null;
 
@@ -228,6 +319,13 @@ export const LessonChessBoard: React.FC<LessonChessBoardProps> = ({
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           {renderRankLabels()}
           <View
+            {...panResponder.panHandlers}
+            onLayout={(event) => {
+              const { x, y } = event.nativeEvent.layout;
+              event.currentTarget.measure((fx, fy, width, height, px, py) => {
+                boardLayoutRef.current = { x: px, y: py };
+              });
+            }}
             style={{
               width: boardSize,
               height: boardSize,

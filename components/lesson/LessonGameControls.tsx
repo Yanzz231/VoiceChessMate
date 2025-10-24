@@ -5,6 +5,8 @@ import { FlagIcon } from "@/components/icons/FlagIcon";
 import { HintIcon } from "@/components/icons/HintIcon";
 import { Mic } from "@/components/icons/Mic";
 import { UndoIcon } from "@/components/icons/UndoIcon";
+import { HistoryIcon } from "@/components/icons/HistoryIcon";
+import { BoardIcon } from "@/components/icons/BoardIcon";
 import { WCAGColors, AccessibilitySizes } from "@/constants/wcagColors";
 
 interface LessonGameControlsProps {
@@ -17,6 +19,8 @@ interface LessonGameControlsProps {
   onVoicePressOut: () => void;
   onHintPress: () => void;
   onUndoPress: () => void;
+  onHistoryPress: () => void;
+  showHistoryView: boolean;
 }
 
 export const LessonGameControls: React.FC<LessonGameControlsProps> = ({
@@ -29,6 +33,8 @@ export const LessonGameControls: React.FC<LessonGameControlsProps> = ({
   onVoicePressOut,
   onHintPress,
   onUndoPress,
+  onHistoryPress,
+  showHistoryView,
 }) => {
   return (
     <View
@@ -57,25 +63,72 @@ export const LessonGameControls: React.FC<LessonGameControlsProps> = ({
         >
           <View
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
+              width: 48,
+              height: 48,
+              borderRadius: 24,
               backgroundColor: WCAGColors.neutral.gray100,
               justifyContent: "center",
               alignItems: "center",
             }}
           >
-            <FlagIcon width={26} height={26} color={WCAGColors.neutral.gray700} />
+            <FlagIcon width={22} height={22} color={WCAGColors.neutral.gray700} />
           </View>
           <Text
             style={{
-              fontSize: AccessibilitySizes.text.xs,
+              fontSize: 11,
               fontWeight: AccessibilitySizes.fontWeight.semibold,
               color: isVoiceDisabled ? WCAGColors.neutral.gray400 : WCAGColors.neutral.gray700,
-              marginTop: 6,
+              marginTop: 4,
             }}
           >
             Quit
+          </Text>
+        </TouchableOpacity>
+
+        {/* History/Board Toggle Button */}
+        <TouchableOpacity
+          onPress={onHistoryPress}
+          style={{
+            alignItems: "center",
+          }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={showHistoryView ? "Show board" : "Show move history"}
+          accessibilityHint="Toggle between board and move history view"
+        >
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: showHistoryView ? WCAGColors.primary.yellow : WCAGColors.neutral.gray100,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            {showHistoryView ? (
+              <BoardIcon
+                width={22}
+                height={22}
+                color={WCAGColors.neutral.white}
+              />
+            ) : (
+              <HistoryIcon
+                width={22}
+                height={22}
+                color={WCAGColors.neutral.gray700}
+              />
+            )}
+          </View>
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: AccessibilitySizes.fontWeight.semibold,
+              color: showHistoryView ? WCAGColors.primary.yellow : WCAGColors.neutral.gray700,
+              marginTop: 4,
+            }}
+          >
+            {showHistoryView ? "Board" : "History"}
           </Text>
         </TouchableOpacity>
 
@@ -94,7 +147,6 @@ export const LessonGameControls: React.FC<LessonGameControlsProps> = ({
           }
           style={{
             alignItems: "center",
-            transform: [{ scale: 1.1 }],
           }}
           accessible={true}
           accessibilityRole="button"
@@ -113,9 +165,9 @@ export const LessonGameControls: React.FC<LessonGameControlsProps> = ({
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
-              width: 72,
-              height: 72,
-              borderRadius: 36,
+              width: 60,
+              height: 60,
+              borderRadius: 30,
               justifyContent: "center",
               alignItems: "center",
               shadowColor: WCAGColors.primary.yellow,
@@ -127,24 +179,24 @@ export const LessonGameControls: React.FC<LessonGameControlsProps> = ({
           >
             <View
               style={{
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                borderWidth: 3,
+                width: 54,
+                height: 54,
+                borderRadius: 27,
+                borderWidth: 2.5,
                 borderColor: "rgba(255, 255, 255, 0.3)",
                 justifyContent: "center",
                 alignItems: "center",
               }}
             >
-              <Mic height={32} width={32} color={WCAGColors.neutral.white} />
+              <Mic height={28} width={28} color={WCAGColors.neutral.white} />
             </View>
           </LinearGradient>
           <Text
             style={{
-              fontSize: AccessibilitySizes.text.xs,
+              fontSize: 11,
               fontWeight: AccessibilitySizes.fontWeight.bold,
               color: (!currentPlayerTurn || isVoiceDisabled) ? WCAGColors.neutral.gray400 : WCAGColors.primary.yellow,
-              marginTop: 8,
+              marginTop: 4,
             }}
           >
             {isProcessingMove ? "Processing..." : "Voice"}
@@ -166,22 +218,22 @@ export const LessonGameControls: React.FC<LessonGameControlsProps> = ({
         >
           <View
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
+              width: 48,
+              height: 48,
+              borderRadius: 24,
               backgroundColor: WCAGColors.neutral.gray100,
               justifyContent: "center",
               alignItems: "center",
             }}
           >
-            <HintIcon width={26} height={26} color={WCAGColors.neutral.gray700} />
+            <HintIcon width={22} height={22} color={WCAGColors.neutral.gray700} />
           </View>
           <Text
             style={{
-              fontSize: AccessibilitySizes.text.xs,
+              fontSize: 11,
               fontWeight: AccessibilitySizes.fontWeight.semibold,
               color: isVoiceDisabled ? WCAGColors.neutral.gray400 : WCAGColors.neutral.gray700,
-              marginTop: 6,
+              marginTop: 4,
             }}
           >
             Hint
@@ -204,22 +256,22 @@ export const LessonGameControls: React.FC<LessonGameControlsProps> = ({
         >
           <View
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
+              width: 48,
+              height: 48,
+              borderRadius: 24,
               backgroundColor: WCAGColors.neutral.gray100,
               justifyContent: "center",
               alignItems: "center",
             }}
           >
-            <UndoIcon width={26} height={26} color={WCAGColors.neutral.gray700} />
+            <UndoIcon width={22} height={22} color={WCAGColors.neutral.gray700} />
           </View>
           <Text
             style={{
-              fontSize: AccessibilitySizes.text.xs,
+              fontSize: 11,
               fontWeight: AccessibilitySizes.fontWeight.semibold,
               color: !canUndo ? WCAGColors.neutral.gray400 : WCAGColors.neutral.gray700,
-              marginTop: 6,
+              marginTop: 4,
             }}
           >
             Undo

@@ -40,23 +40,34 @@ export const useGameAnalysis = (): UseGameAnalysisResult => {
     try {
       const userId = await AsyncStorage.getItem("user_id");
       if (!userId) {
-        Alert.alert("Error", "User ID not found. Please login again.");
+        console.log("No user_id found, skipping game fetch");
+        setGames([]);
+        setLoading(false);
+        setRefreshing(false);
         return;
       }
 
       const response = await fetch(
-        `https://voicechessmatebe-production.up.railway.app/api/analysis/${userId}/games`
+        `https://voicechessmatebe-production.up.railway.app/api/analysis/${userId}/games`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch games");
+        console.warn(`Failed to fetch games: ${response.status} ${response.statusText}`);
+        setGames([]);
+        return;
       }
 
       const data: ApiResponse = await response.json();
       setGames(data.data || []);
     } catch (error) {
       console.error("Error loading games:", error);
-      Alert.alert("Error", "Failed to load game history. Please try again.");
+      setGames([]);
     } finally {
       setLoading(false);
       setRefreshing(false);

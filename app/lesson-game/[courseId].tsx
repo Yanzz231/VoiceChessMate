@@ -6,7 +6,9 @@ import {
   Alert,
   BackHandler,
   SafeAreaView,
+  ScrollView,
   View,
+  Vibration,
 } from "react-native";
 
 import { MoveHistory } from "@/components/chess/MoveHistory";
@@ -47,6 +49,7 @@ export default function LessonGameScreen() {
   const [showCompletedModal, setShowCompletedModal] = useState(false);
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
   const [moveHistory, setMoveHistory] = useState<Array<{ moveNumber: number; white: string; black?: string }>>([]);
+  const [showHistoryView, setShowHistoryView] = useState(false);
 
   const { currentTheme, currentPieceTheme } = useChessSettings();
 
@@ -72,8 +75,45 @@ export default function LessonGameScreen() {
       setGame(newGame);
       addGameState(newGame);
       resetSelection();
+
+      // Update move history manually by tracking each move
+      if (move && move.san) {
+        setMoveHistory((prevHistory) => {
+          const newHistory = [...prevHistory];
+          const totalMoves = prevHistory.reduce((sum, m) => sum + (m.black ? 2 : 1), 0);
+          const isWhiteMove = totalMoves % 2 === 0;
+
+          if (isWhiteMove) {
+            // White's move - create new entry
+            newHistory.push({
+              moveNumber: Math.floor(totalMoves / 2) + 1,
+              white: move.san,
+            });
+          } else {
+            // Black's move - update last entry
+            const lastEntry = newHistory[newHistory.length - 1];
+            if (lastEntry) {
+              lastEntry.black = move.san;
+            }
+          }
+
+          return newHistory;
+        });
+      }
+
+      // Announce check or checkmate
+      if (voiceModeEnabled) {
+        setTimeout(() => {
+          const playerInCheck = newGame.turn() === "w" ? "White" : "Black";
+          if (newGame.isCheckmate()) {
+            speak(`Checkmate! ${playerInCheck} is checkmated!`);
+          } else if (newGame.inCheck()) {
+            speak(`Check! ${playerInCheck} is in check!`);
+          }
+        }, 500);
+      }
     },
-    [setGame, addGameState, setLastMove]
+    [setGame, addGameState, setLastMove, voiceModeEnabled]
   );
 
   const {
@@ -184,24 +224,6 @@ export default function LessonGameScreen() {
     return () => backHandler.remove();
   }, [showPromotionModal, showCompletedModal]);
 
-  useEffect(() => {
-    const moves: Array<{ moveNumber: number; white: string; black?: string }> = [];
-    const history = game.history({ verbose: true });
-
-    for (let i = 0; i < history.length; i += 2) {
-      const moveNumber = Math.floor(i / 2) + 1;
-      const whiteMove = history[i];
-      const blackMove = history[i + 1];
-
-      moves.push({
-        moveNumber,
-        white: whiteMove.san,
-        black: blackMove?.san,
-      });
-    }
-
-    setMoveHistory(moves);
-  }, [gameStates.length]);
 
   const checkGameStatus = () => {
     if (game.isCheckmate()) {
@@ -276,9 +298,16 @@ export default function LessonGameScreen() {
     setGameStates(newGameStates);
     resetSelection();
     setLastMove(null);
+
+    // Update move history after undo
+    const newMoveCount = newGameStates.length - 1; // -1 for initial state
+    const movesToRemove = Math.ceil(newMoveCount / 2);
+    setMoveHistory((prevHistory) => prevHistory.slice(0, movesToRemove));
   };
 
   const handleSquareTap = (square: string, piece: any) => {
+    Vibration.vibrate(50);
+
     if (voiceModeEnabled) {
       if (piece) {
         const pieceColor = piece.color === "w" ? "White" : "Black";
@@ -352,27 +381,27 @@ export default function LessonGameScreen() {
           onTextPress={(text) => voiceModeEnabled && speak(text)}
         />
 
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16, paddingBottom: 8 }}>
-          <LessonChessBoard
-            game={game}
-            currentTheme={currentTheme}
-            currentPieceTheme={currentPieceTheme}
-            selectedSquare={selectedSquare}
-            possibleMoves={possibleMoves}
-            lastMove={lastMove}
-            isWaitingForBot={isWaitingForBot}
-            isProcessingMove={isProcessingMove}
-            voiceModeEnabled={voiceModeEnabled}
-            onSquarePress={handleSquareTap}
-            getSquareStyle={getSquareStyle}
-          />
-
-          {moveHistory.length > 0 && (
-            <View style={{ marginTop: 16, width: "100%", paddingHorizontal: 4 }}>
-              <MoveHistory moves={moveHistory} voiceModeEnabled={voiceModeEnabled} />
-            </View>
-          )}
-        </View>
+        {!showHistoryView ? (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16, paddingBottom: 8 }}>
+            <LessonChessBoard
+              game={game}
+              currentTheme={currentTheme}
+              currentPieceTheme={currentPieceTheme}
+              selectedSquare={selectedSquare}
+              possibleMoves={possibleMoves}
+              lastMove={lastMove}
+              isWaitingForBot={isWaitingForBot}
+              isProcessingMove={isProcessingMove}
+              voiceModeEnabled={voiceModeEnabled}
+              onSquarePress={handleSquareTap}
+              getSquareStyle={getSquareStyle}
+            />
+          </View>
+        ) : (
+          <View style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
+            <MoveHistory moves={moveHistory} voiceModeEnabled={voiceModeEnabled} />
+          </View>
+        )}
       </View>
 
       <LessonGameControls
@@ -385,6 +414,13 @@ export default function LessonGameScreen() {
         onVoicePressOut={handleTouchEnd}
         onHintPress={handleHintRequest}
         onUndoPress={handleUndo}
+        onHistoryPress={() => {
+          setShowHistoryView(!showHistoryView);
+          if (voiceModeEnabled) {
+            speak(showHistoryView ? "Showing board" : "Showing move history");
+          }
+        }}
+        showHistoryView={showHistoryView}
       />
 
       <LessonBackModal

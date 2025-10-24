@@ -33,11 +33,22 @@ export const MoveHistory: React.FC<MoveHistoryProps> = ({ moves, voiceModeEnable
       shadowRadius: 8,
       elevation: 3,
     }}>
-      <View style={{
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 12,
-      }}>
+      <TouchableOpacity
+        onPress={() => {
+          if (voiceModeEnabled) {
+            speak(`Move History. Total moves: ${moves.length}`);
+          }
+        }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          marginBottom: 12,
+        }}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={`Move History. Total moves: ${moves.length}`}
+        accessibilityHint="Tap to hear move count"
+      >
         <View style={{
           width: 4,
           height: 20,
@@ -52,16 +63,27 @@ export const MoveHistory: React.FC<MoveHistoryProps> = ({ moves, voiceModeEnable
         }}>
           Move History
         </Text>
-      </View>
+      </TouchableOpacity>
 
-      <View style={{
-        flexDirection: "row",
-        backgroundColor: WCAGColors.primary.yellowBg,
-        borderRadius: AccessibilitySizes.radius.md,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        marginBottom: 8,
-      }}>
+      <TouchableOpacity
+        onPress={() => {
+          if (voiceModeEnabled) {
+            speak("Move history table. Columns: Move number, White moves, Black moves");
+          }
+        }}
+        style={{
+          flexDirection: "row",
+          backgroundColor: WCAGColors.primary.yellowBg,
+          borderRadius: AccessibilitySizes.radius.md,
+          paddingVertical: 10,
+          paddingHorizontal: 12,
+          marginBottom: 8,
+        }}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel="Move history table headers"
+        accessibilityHint="Tap to hear column descriptions"
+      >
         <Text style={{
           flex: 0.25,
           fontSize: AccessibilitySizes.text.xs,
@@ -93,94 +115,121 @@ export const MoveHistory: React.FC<MoveHistoryProps> = ({ moves, voiceModeEnable
         }}>
           Black
         </Text>
-      </View>
+      </TouchableOpacity>
 
       <ScrollView style={{ maxHeight: 130 }} showsVerticalScrollIndicator={false}>
-        {moves.map((move, index) => (
-          <View
-            key={move.moveNumber}
-            style={{
-              flexDirection: "row",
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-              borderRadius: AccessibilitySizes.radius.sm,
-              backgroundColor: index % 2 === 0 ? WCAGColors.neutral.gray50 : "transparent",
-              marginBottom: 2,
+        {moves.length === 0 ? (
+          <TouchableOpacity
+            onPress={() => {
+              if (voiceModeEnabled) {
+                speak("No moves yet. Start playing to see move history.");
+              }
             }}
-          >
-            <View style={{
-              flex: 0.25,
+            style={{
+              paddingVertical: 20,
               alignItems: "center",
               justifyContent: "center",
+            }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="No moves yet"
+            accessibilityHint="Tap to hear message"
+          >
+            <Text style={{
+              fontSize: AccessibilitySizes.text.sm,
+              color: WCAGColors.neutral.gray400,
+              fontStyle: "italic",
             }}>
+              No moves yet
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          moves.map((move, index) => (
+            <View
+              key={move.moveNumber}
+              style={{
+                flexDirection: "row",
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: AccessibilitySizes.radius.sm,
+                backgroundColor: index % 2 === 0 ? WCAGColors.neutral.gray50 : "transparent",
+                marginBottom: 2,
+              }}
+            >
               <View style={{
-                width: 24,
-                height: 24,
-                borderRadius: 12,
-                backgroundColor: WCAGColors.primary.yellow,
+                flex: 0.25,
                 alignItems: "center",
                 justifyContent: "center",
               }}>
-                <Text style={{
-                  fontSize: AccessibilitySizes.text.xs,
-                  color: WCAGColors.neutral.white,
-                  fontWeight: AccessibilitySizes.fontWeight.bold,
+                <View style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  backgroundColor: WCAGColors.primary.yellow,
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}>
-                  {move.moveNumber}
-                </Text>
+                  <Text style={{
+                    fontSize: AccessibilitySizes.text.xs,
+                    color: WCAGColors.neutral.white,
+                    fontWeight: AccessibilitySizes.fontWeight.bold,
+                  }}>
+                    {move.moveNumber}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <TouchableOpacity
-              onPress={() => handleMovePress(move.moveNumber, "white", move.white)}
-              style={{
-                flex: 1,
-                justifyContent: "center",
-                paddingHorizontal: 8,
-              }}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel={`Move ${move.moveNumber}, White: ${move.white}`}
-              accessibilityHint="Tap to hear move details"
-            >
-              <Text style={{
-                fontSize: AccessibilitySizes.text.sm,
-                color: WCAGColors.neutral.gray900,
-                fontWeight: AccessibilitySizes.fontWeight.semibold,
-              }}>
-                {move.white}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                if (voiceModeEnabled) {
-                  if (move.black) {
-                    handleMovePress(move.moveNumber, "black", move.black);
-                  } else {
-                    speak("Empty");
+              <TouchableOpacity
+                onPress={() => handleMovePress(move.moveNumber, "white", move.white)}
+                style={{
+                  flex: 1,
+                  justifyContent: "center",
+                  paddingHorizontal: 8,
+                }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={`Move ${move.moveNumber}, White: ${move.white}`}
+                accessibilityHint="Tap to hear move details"
+              >
+                <Text style={{
+                  fontSize: AccessibilitySizes.text.sm,
+                  color: WCAGColors.neutral.gray900,
+                  fontWeight: AccessibilitySizes.fontWeight.semibold,
+                }}>
+                  {move.white}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  if (voiceModeEnabled) {
+                    if (move.black) {
+                      handleMovePress(move.moveNumber, "black", move.black);
+                    } else {
+                      speak("Empty");
+                    }
                   }
-                }
-              }}
-              style={{
-                flex: 1,
-                justifyContent: "center",
-                paddingHorizontal: 8,
-              }}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel={move.black ? `Move ${move.moveNumber}, Black: ${move.black}` : "Empty square"}
-              accessibilityHint="Tap to hear move details"
-            >
-              <Text style={{
-                fontSize: AccessibilitySizes.text.sm,
-                color: move.black ? WCAGColors.neutral.gray900 : WCAGColors.neutral.gray400,
-                fontWeight: move.black ? AccessibilitySizes.fontWeight.semibold : AccessibilitySizes.fontWeight.medium,
-                fontStyle: move.black ? "normal" : "italic",
-              }}>
-                {move.black || "-"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+                }}
+                style={{
+                  flex: 1,
+                  justifyContent: "center",
+                  paddingHorizontal: 8,
+                }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={move.black ? `Move ${move.moveNumber}, Black: ${move.black}` : "Empty square"}
+                accessibilityHint="Tap to hear move details"
+              >
+                <Text style={{
+                  fontSize: AccessibilitySizes.text.sm,
+                  color: move.black ? WCAGColors.neutral.gray900 : WCAGColors.neutral.gray400,
+                  fontWeight: move.black ? AccessibilitySizes.fontWeight.semibold : AccessibilitySizes.fontWeight.medium,
+                  fontStyle: move.black ? "normal" : "italic",
+                }}>
+                  {move.black || "-"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
       </ScrollView>
     </View>
   );
