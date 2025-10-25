@@ -7,6 +7,7 @@ export const CHESS_STORAGE_KEYS = {
   DIFFICULTY: "chess_difficulty",
   COLOR: "chess_color",
   GAME_FEN: "chess_game_fen",
+  SAVED_GAMES: "chess_saved_games",
 };
 
 export const USER_STORAGE_KEYS = {

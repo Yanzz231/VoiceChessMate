@@ -31,7 +31,7 @@ export const LessonSettingsModal: React.FC<LessonSettingsModalProps> = ({
       transparent={true}
       animationType="fade"
     >
-      <View style={{ flex: 1, backgroundColor: "transparent", justifyContent: "center", alignItems: "center" }}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center" }}>
         <View style={{
           backgroundColor: WCAGColors.neutral.white,
           borderRadius: AccessibilitySizes.radius.lg,

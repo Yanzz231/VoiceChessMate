@@ -6,7 +6,6 @@ import {
   Alert,
   BackHandler,
   SafeAreaView,
-  ScrollView,
   View,
   Vibration,
 } from "react-native";

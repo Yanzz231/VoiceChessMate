@@ -1,57 +1,93 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-import { BackIcon } from "@/components/BackIcon";
 import { PieceRenderer } from "@/components/chess/PieceRenderer";
-import { Face } from "@/components/Face";
-import { Setting } from "@/components/icons/Setting";
-
-import ChessGame from "@/components/ChessGame";
+import { DeleteGameModal } from "@/components/modals/DeleteGameModal";
 
 import {
   DEFAULT_PIECE_THEME,
   PIECE_THEMES,
 } from "@/constants/chessPieceThemes";
-import { CHESS_STORAGE_KEYS } from "@/constants/storageKeys";
-import { userService } from "@/services/userService";
+import { CHESS_STORAGE_KEYS, USER_STORAGE_KEYS } from "@/constants/storageKeys";
+import { WCAGColors, AccessibilitySizes } from "@/constants/wcagColors";
+import { speak } from "@/utils/speechUtils";
+
+type TabType = "quick" | "load";
 
 export default function PlayWithAI() {
   const router = useRouter();
-  const [selectedLevel, setSelectedLevel] = useState("easy");
-  const [selectedColor, setSelectedColor] = useState<"white" | "black">(
-    "white"
-  );
-  const [gameStarted, setGameStarted] = useState(false);
-  const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>("quick");
+  const [selectedLevel, setSelectedLevel] = useState("medium");
+  const [selectedColor, setSelectedColor] = useState<"white" | "black">("white");
   const [loading, setLoading] = useState(false);
-  const [currentPieceTheme, setCurrentPieceTheme] =
-    useState(DEFAULT_PIECE_THEME);
+  const [currentPieceTheme, setCurrentPieceTheme] = useState(DEFAULT_PIECE_THEME);
+  const [savedGames, setSavedGames] = useState<any[]>([]);
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [gameToDelete, setGameToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  const difficultyLevels = ["easy", "medium", "hard"];
+  const difficultyLevels = [
+    { id: "easy", label: "Easy", icon: "leaf-outline" },
+    { id: "medium", label: "Medium", icon: "person-outline" },
+    { id: "hard", label: "Hard", icon: "flame-outline" },
+  ];
 
   useEffect(() => {
     loadSavedSettings();
-    checkGameSession();
     loadPieceTheme();
+    loadVoiceMode();
   }, []);
+
+  const loadVoiceMode = async () => {
+    try {
+      const voiceMode = await AsyncStorage.getItem(USER_STORAGE_KEYS.VOICE_MODE);
+      setVoiceModeEnabled(voiceMode === "true");
+
+      if (voiceMode === "true") {
+        setTimeout(() => {
+          speak("Play with AI. Select difficulty and start a new game.");
+        }, 500);
+      }
+    } catch (error) {
+      // Error loading voice mode
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSavedGames();
+    }, [])
+  );
+
+  const loadSavedGames = async () => {
+    try {
+      const savedGamesJson = await AsyncStorage.getItem(CHESS_STORAGE_KEYS.SAVED_GAMES);
+      if (savedGamesJson) {
+        const games = JSON.parse(savedGamesJson);
+        // Sort by lastPlayed date, most recent first
+        games.sort((a: any, b: any) => new Date(b.lastPlayed).getTime() - new Date(a.lastPlayed).getTime());
+        setSavedGames(games);
+      }
+    } catch (error) {
+      // Error loading saved games
+    }
+  };
 
   const loadSavedSettings = async () => {
     try {
-      const savedDifficulty = await AsyncStorage.getItem(
-        CHESS_STORAGE_KEYS.DIFFICULTY
-      );
+      const savedDifficulty = await AsyncStorage.getItem(CHESS_STORAGE_KEYS.DIFFICULTY);
       const savedColor = await AsyncStorage.getItem(CHESS_STORAGE_KEYS.COLOR);
 
       if (savedDifficulty) {
@@ -61,36 +97,19 @@ export default function PlayWithAI() {
         setSelectedColor(savedColor as "white" | "black");
       }
     } catch (error) {
-      // console.error("Error loading saved settings:", error);
+      // Error loading settings
     }
   };
 
   const loadPieceTheme = async () => {
     try {
-      const savedPieceThemeId = await AsyncStorage.getItem(
-        CHESS_STORAGE_KEYS.PIECE_THEME
-      );
+      const savedPieceThemeId = await AsyncStorage.getItem(CHESS_STORAGE_KEYS.PIECE_THEME);
       if (savedPieceThemeId) {
-        const theme =
-          PIECE_THEMES.find((t) => t.id === savedPieceThemeId) ||
-          DEFAULT_PIECE_THEME;
+        const theme = PIECE_THEMES.find((t) => t.id === savedPieceThemeId) || DEFAULT_PIECE_THEME;
         setCurrentPieceTheme(theme);
       }
     } catch (error) {
-      // console.error("Error loading piece theme:", error);
-    }
-  };
-
-  const checkGameSession = async () => {
-    try {
-      const gameSession = await AsyncStorage.getItem(
-        CHESS_STORAGE_KEYS.GAME_SESSION
-      );
-      if (gameSession === "active") {
-        setGameStarted(true);
-      }
-    } catch (error) {
-      // console.error("Error checking game session:", error);
+      // Error loading piece theme
     }
   };
 
@@ -100,250 +119,708 @@ export default function PlayWithAI() {
       await AsyncStorage.setItem(CHESS_STORAGE_KEYS.COLOR, selectedColor);
       await AsyncStorage.setItem(CHESS_STORAGE_KEYS.GAME_SESSION, "active");
     } catch (error) {
-      // console.error("Error saving game settings:", error);
-    }
-  };
-
-  const clearGameSession = async () => {
-    try {
-      await AsyncStorage.multiRemove([
-        CHESS_STORAGE_KEYS.GAME_STATES,
-        CHESS_STORAGE_KEYS.CURRENT_STATE_INDEX,
-        CHESS_STORAGE_KEYS.GAME_SESSION,
-        CHESS_STORAGE_KEYS.DIFFICULTY,
-        CHESS_STORAGE_KEYS.COLOR,
-        CHESS_STORAGE_KEYS.GAME_FEN,
-        "game_id",
-      ]);
-    } catch (error) {
-      // console.error("Error clearing game session:", error);
+      // Error saving game settings
     }
   };
 
   const handleStart = async () => {
     setLoading(true);
+
+    if (voiceModeEnabled) {
+      const levelNames: Record<string, string> = {
+        easy: "Easy",
+        medium: "Medium",
+        hard: "Hard"
+      };
+      speak(`Starting ${levelNames[selectedLevel]} game. Playing as ${selectedColor}.`);
+    }
+
     try {
       const userId = await AsyncStorage.getItem("user_id");
 
       if (!userId) {
         Alert.alert("Error", "User not found. Please login again.");
+        if (voiceModeEnabled) {
+          speak("Error: User not found. Please login again.");
+        }
         setLoading(false);
         return;
       }
 
-      const gameId = await userService.createGame(userId);
-
-      if (!gameId) {
-        Alert.alert("Error", "Failed to create game. Please try again.");
-        setLoading(false);
-        return;
-      }
+      // Generate unique game ID
+      const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
       await AsyncStorage.setItem("game_id", gameId);
       await saveGameSettings();
 
-      setTimeout(() => {
-        setGameStarted(true);
-        setLoading(false);
-      }, 1000);
+      router.push("/chess-game");
+      setLoading(false);
     } catch (error) {
-      // console.error("Error starting game:", error);
+      Alert.alert("Error", "Failed to start game. Please try again.");
+      if (voiceModeEnabled) {
+        speak("Failed to start game. Please try again.");
+      }
       setLoading(false);
     }
   };
 
   const handleLevelSelect = (level: string) => {
     setSelectedLevel(level);
-    setDropdownVisible(false);
+    if (voiceModeEnabled) {
+      const levelNames: Record<string, string> = {
+        easy: "Easy",
+        medium: "Medium",
+        hard: "Hard"
+      };
+      speak(`Difficulty selected: ${levelNames[level]}`);
+    }
+  };
+
+  const handleLoadGame = async (game: any) => {
+    try {
+      setLoading(true);
+
+      if (voiceModeEnabled) {
+        speak(`Loading ${game.name || "saved game"}`);
+      }
+
+      // Update lastPlayed timestamp
+      const savedGamesJson = await AsyncStorage.getItem(CHESS_STORAGE_KEYS.SAVED_GAMES);
+      if (savedGamesJson) {
+        const games = JSON.parse(savedGamesJson);
+        const updatedGames = games.map((g: any) =>
+          g.id === game.id ? { ...g, lastPlayed: new Date().toISOString() } : g
+        );
+        await AsyncStorage.setItem(CHESS_STORAGE_KEYS.SAVED_GAMES, JSON.stringify(updatedGames));
+      }
+
+      // Set game data to AsyncStorage
+      await AsyncStorage.setItem("game_id", game.id);
+      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.GAME_FEN, game.fen);
+      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.DIFFICULTY, game.difficulty);
+      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.COLOR, game.playerColor);
+      await AsyncStorage.setItem(CHESS_STORAGE_KEYS.GAME_SESSION, "active");
+
+      // Load game states if available
+      if (game.gameStates) {
+        await AsyncStorage.setItem(CHESS_STORAGE_KEYS.GAME_STATES, JSON.stringify(game.gameStates));
+      }
+
+      router.push("/chess-game");
+      setLoading(false);
+    } catch (error) {
+      Alert.alert("Error", "Failed to load game");
+      if (voiceModeEnabled) {
+        speak("Failed to load game");
+      }
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteGame = (gameId: string, gameName: string) => {
+    setGameToDelete({ id: gameId, name: gameName });
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteGame = async () => {
+    if (!gameToDelete) return;
+
+    try {
+      const savedGamesJson = await AsyncStorage.getItem(CHESS_STORAGE_KEYS.SAVED_GAMES);
+      if (savedGamesJson) {
+        const games = JSON.parse(savedGamesJson);
+        const updatedGames = games.filter((g: any) => g.id !== gameToDelete.id);
+        await AsyncStorage.setItem(CHESS_STORAGE_KEYS.SAVED_GAMES, JSON.stringify(updatedGames));
+        setSavedGames(updatedGames);
+
+        if (voiceModeEnabled) {
+          speak("Game deleted successfully");
+        }
+      }
+
+      setShowDeleteModal(false);
+      setGameToDelete(null);
+    } catch (error) {
+      if (voiceModeEnabled) {
+        speak("Failed to delete game");
+      }
+      setShowDeleteModal(false);
+      setGameToDelete(null);
+    }
   };
 
   const handleColorSelect = (color: "white" | "black") => {
     setSelectedColor(color);
-  };
-
-  const handleBackPress = async () => {
-    if (gameStarted) {
-      await clearGameSession();
-      setGameStarted(false);
-      router.back();
-    } else {
-      router.back();
+    if (voiceModeEnabled) {
+      speak(`Playing as ${color}`);
     }
   };
 
-  const handleSettingsPress = () => {
-    router.push("/settings");
+  const handleBackPress = () => {
+    router.back();
   };
 
-  const handleGameQuit = async () => {
-    await clearGameSession();
-    setGameStarted(false);
+  const handleSettingsPress = () => {
+    router.push("/profile");
   };
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-100">
-        <StatusBar barStyle="dark-content" backgroundColor="#f3f4f6" />
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#6366F1" />
-          <Text className="text-lg text-gray-700 mt-4">Creating game...</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: WCAGColors.neutral.gray50 }}>
+        <StatusBar style="dark" />
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={WCAGColors.primary.yellow} />
+          <Text style={{
+            fontSize: AccessibilitySizes.text.lg,
+            color: WCAGColors.neutral.gray700,
+            marginTop: 16,
+          }}>
+            Creating game...
+          </Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (gameStarted) {
-    return (
-      <ChessGame
-        onQuit={handleGameQuit}
-        onBack={handleBackPress}
-        playerColor={selectedColor}
-      />
-    );
-  }
-
   return (
-    <SafeAreaView className="flex-1 bg-gray-200">
-      <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: WCAGColors.neutral.white }}>
+      <StatusBar style="dark" />
 
-      <View className="bg-white px-4 py-4 pt-14">
-        <View className="flex-row items-center justify-between">
+      {/* Header */}
+      <View style={{
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: WCAGColors.neutral.gray100,
+      }}>
+        <View style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}>
           <TouchableOpacity
-            onPress={handleBackPress}
-            className="w-10 h-10 justify-center items-center"
+            onPress={() => {
+              if (voiceModeEnabled) {
+                speak("Going back");
+              }
+              handleBackPress();
+            }}
+            style={{
+              width: AccessibilitySizes.minTouchTarget,
+              height: AccessibilitySizes.minTouchTarget,
+              borderRadius: AccessibilitySizes.minTouchTarget / 2,
+              backgroundColor: WCAGColors.primary.yellow,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
           >
-            <BackIcon height={30} width={30} />
+            <Ionicons name="arrow-back" size={24} color={WCAGColors.neutral.white} />
           </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-800">
-            Play with AI
+          <Text style={{
+            fontSize: AccessibilitySizes.text.xl,
+            fontWeight: AccessibilitySizes.fontWeight.bold,
+            color: WCAGColors.neutral.gray900,
+          }}>
+            Play Chess
           </Text>
           <TouchableOpacity
             onPress={handleSettingsPress}
-            className="w-10 h-10 justify-center items-center"
+            style={{
+              width: AccessibilitySizes.minTouchTarget,
+              height: AccessibilitySizes.minTouchTarget,
+              borderRadius: AccessibilitySizes.minTouchTarget / 2,
+              backgroundColor: WCAGColors.neutral.gray100,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
           >
-            <Setting height={30} width={30} color="#000" />
+            <Ionicons name="settings-outline" size={24} color={WCAGColors.neutral.gray900} />
           </TouchableOpacity>
-        </View>
-
-        <View className="px-6 pt-6 mb-4">
-          <View className="flex-row  gap-4 justify-center items-center">
-            <Face height={70} width={70} />
-
-            <View className="flex-1 bg-white rounded-2xl rounded-tl-sm p-4 shadow-sm border border-gray-100 relative">
-              <View className="absolute -left-2 top-4 w-0 h-0 border-t-8 border-b-8 border-r-8 border-transparent border-r-white" />
-              <Text className="text-gray-800 text-base leading-relaxed">
-                Welcome back. Nothing like a friendly game to learn new tactics!
-              </Text>
-            </View>
-          </View>
         </View>
       </View>
 
-      <ScrollView
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-      ></ScrollView>
-
-      <View className="px-6 pb-6 bg-white border-t border-gray-100">
-        <View className="flex-row items-center justify-center mb-4 pt-4">
-          <TouchableOpacity
-            onPress={() => setDropdownVisible(true)}
-            className="bg-white rounded-full w-56 justify-center border border-gray-300 px-4 py-3 flex-row items-center mr-4 shadow-sm"
-          >
-            <Text className="text-gray-700 text-base mr-2">
-              {selectedLevel[0].toUpperCase() + selectedLevel.slice(1)}
-            </Text>
-            <Text className="text-gray-400 text-xs">▼</Text>
-          </TouchableOpacity>
-
-          <View className="flex-row space-x-2 gap-4">
-            <TouchableOpacity
-              onPress={() => handleColorSelect("white")}
-              className={`w-12 h-12 ${
-                selectedColor === "white"
-                  ? "bg-indigo-500 border-0 "
-                  : "bg-gray-200 border-2 border-transparent"
-              } rounded-full justify-center items-center shadow-sm`}
-            >
-              <PieceRenderer
-                type="k"
-                color="w"
-                theme={currentPieceTheme.version}
-                size={30}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleColorSelect("black")}
-              className={`w-12 h-12 ${
-                selectedColor === "black"
-                  ? "bg-indigo-500 border-0"
-                  : "bg-gray-200 border-2 border-transparent"
-              } rounded-full justify-center items-center shadow-sm`}
-            >
-              <PieceRenderer
-                type="k"
-                color="b"
-                theme={currentPieceTheme.version}
-                size={30}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
+      {/* Tabs */}
+      <View style={{
+        flexDirection: "row",
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        gap: 8,
+      }}>
+        <TouchableOpacity
+          onPress={() => {
+            setActiveTab("quick");
+            if (voiceModeEnabled) {
+              speak("Quick Play tab");
+            }
+          }}
+          style={{
+            flex: 1,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: AccessibilitySizes.radius.lg,
+            backgroundColor: activeTab === "quick"
+              ? WCAGColors.primary.yellow
+              : WCAGColors.neutral.gray100,
+          }}
+        >
+          <Text style={{
+            fontSize: AccessibilitySizes.text.md,
+            fontWeight: AccessibilitySizes.fontWeight.semibold,
+            color: activeTab === "quick"
+              ? WCAGColors.neutral.white
+              : WCAGColors.neutral.gray600,
+            textAlign: "center",
+          }}>
+            Quick Play
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={handleStart}
-          className="bg-indigo-600 py-4 rounded-2xl shadow-lg active:bg-indigo-700"
-          disabled={loading}
+          onPress={() => {
+            setActiveTab("load");
+            if (voiceModeEnabled) {
+              speak(`Load Game tab. ${savedGames.length} saved games available.`);
+            }
+          }}
+          style={{
+            flex: 1,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: AccessibilitySizes.radius.lg,
+            backgroundColor: activeTab === "load"
+              ? WCAGColors.primary.yellow
+              : WCAGColors.neutral.gray100,
+          }}
         >
-          <Text className="text-white text-lg font-semibold text-center">
-            {loading ? "Creating game..." : "Start Game"}
+          <Text style={{
+            fontSize: AccessibilitySizes.text.md,
+            fontWeight: AccessibilitySizes.fontWeight.semibold,
+            color: activeTab === "load"
+              ? WCAGColors.neutral.white
+              : WCAGColors.neutral.gray600,
+            textAlign: "center",
+          }}>
+            Load Game
           </Text>
         </TouchableOpacity>
       </View>
 
-      <Modal
-        visible={dropdownVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setDropdownVisible(false)}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20 }}
+        showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          className="flex-1 bg-black/50 justify-center items-center"
-          activeOpacity={1}
-          onPress={() => setDropdownVisible(false)}
-        >
-          <View className="bg-white rounded-2xl mx-8 py-2 shadow-xl max-h-80">
-            <Text className="text-lg font-semibold text-gray-800 text-center mb-2 px-6 py-2">
-              Select Difficulty
-            </Text>
-            {difficultyLevels.map((item) => (
+        {/* Quick Play Tab */}
+        {activeTab === "quick" && (
+          <View>
+            {/* Welcome Message */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                if (voiceModeEnabled) {
+                  speak("Quick Start. Jump right into a game with default settings. Perfect for a quick match!");
+                }
+              }}
+              style={{
+                backgroundColor: WCAGColors.primary.yellowBg,
+                padding: 20,
+                borderRadius: AccessibilitySizes.radius.lg,
+                marginBottom: 24,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <Ionicons name="flash" size={20} color={WCAGColors.primary.yellowDark} />
+                <Text style={{
+                  fontSize: AccessibilitySizes.text.sm,
+                  fontWeight: AccessibilitySizes.fontWeight.bold,
+                  color: WCAGColors.primary.yellowDark,
+                  marginLeft: 8,
+                  textTransform: "uppercase",
+                }}>
+                  Quick Start
+                </Text>
+              </View>
+              <Text style={{
+                fontSize: AccessibilitySizes.text.base,
+                color: WCAGColors.neutral.gray700,
+                lineHeight: 24,
+              }}>
+                Jump right into a game with default settings. Perfect for a quick match!
+              </Text>
+            </TouchableOpacity>
+
+            {/* Difficulty Selection */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                if (voiceModeEnabled) {
+                  speak("Select Difficulty");
+                }
+              }}
+            >
+              <Text style={{
+                fontSize: AccessibilitySizes.text.lg,
+                fontWeight: AccessibilitySizes.fontWeight.bold,
+                color: WCAGColors.neutral.gray900,
+                marginBottom: 12,
+              }}>
+                Select Difficulty
+              </Text>
+            </TouchableOpacity>
+            <View style={{ gap: 12, marginBottom: 24 }}>
+              {difficultyLevels.map((level) => (
+                <TouchableOpacity
+                  key={level.id}
+                  onPress={() => handleLevelSelect(level.id)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    padding: 16,
+                    borderRadius: AccessibilitySizes.radius.md,
+                    borderWidth: 2,
+                    borderColor: selectedLevel === level.id
+                      ? WCAGColors.primary.yellow
+                      : WCAGColors.neutral.gray200,
+                    backgroundColor: selectedLevel === level.id
+                      ? WCAGColors.primary.yellowBg
+                      : WCAGColors.neutral.white,
+                  }}
+                >
+                  <View style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: selectedLevel === level.id
+                      ? WCAGColors.primary.yellow
+                      : WCAGColors.neutral.gray100,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    marginRight: 12,
+                  }}>
+                    <Ionicons
+                      name={level.icon as any}
+                      size={24}
+                      color={selectedLevel === level.id
+                        ? WCAGColors.neutral.white
+                        : WCAGColors.neutral.gray600
+                      }
+                    />
+                  </View>
+                  <Text style={{
+                    flex: 1,
+                    fontSize: AccessibilitySizes.text.lg,
+                    fontWeight: AccessibilitySizes.fontWeight.semibold,
+                    color: selectedLevel === level.id
+                      ? WCAGColors.neutral.gray900
+                      : WCAGColors.neutral.gray700,
+                  }}>
+                    {level.label}
+                  </Text>
+                  {selectedLevel === level.id && (
+                    <Ionicons name="checkmark-circle" size={24} color={WCAGColors.primary.yellow} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Color Selection */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                if (voiceModeEnabled) {
+                  speak("Choose Your Color");
+                }
+              }}
+            >
+              <Text style={{
+                fontSize: AccessibilitySizes.text.lg,
+                fontWeight: AccessibilitySizes.fontWeight.bold,
+                color: WCAGColors.neutral.gray900,
+                marginBottom: 12,
+              }}>
+                Choose Your Color
+              </Text>
+            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 12, marginBottom: 24 }}>
               <TouchableOpacity
-                key={item}
-                onPress={() => handleLevelSelect(item)}
-                className={`px-6 py-3 ${
-                  selectedLevel === item ? "bg-indigo-50" : ""
-                } ${
-                  item !== difficultyLevels[difficultyLevels.length - 1]
-                    ? "border-b border-gray-100"
-                    : ""
-                }`}
+                onPress={() => handleColorSelect("white")}
+                style={{
+                  flex: 1,
+                  padding: 20,
+                  borderRadius: AccessibilitySizes.radius.md,
+                  borderWidth: 2,
+                  borderColor: selectedColor === "white"
+                    ? WCAGColors.primary.yellow
+                    : WCAGColors.neutral.gray200,
+                  backgroundColor: selectedColor === "white"
+                    ? WCAGColors.primary.yellowBg
+                    : WCAGColors.neutral.white,
+                  alignItems: "center",
+                }}
               >
-                <View className="flex-row items-center justify-between">
+                <PieceRenderer
+                  type="k"
+                  color="w"
+                  theme={currentPieceTheme.version}
+                  size={48}
+                />
+                <Text style={{
+                  fontSize: AccessibilitySizes.text.md,
+                  fontWeight: AccessibilitySizes.fontWeight.semibold,
+                  color: WCAGColors.neutral.gray900,
+                  marginTop: 8,
+                }}>
+                  White
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleColorSelect("black")}
+                style={{
+                  flex: 1,
+                  padding: 20,
+                  borderRadius: AccessibilitySizes.radius.md,
+                  borderWidth: 2,
+                  borderColor: selectedColor === "black"
+                    ? WCAGColors.primary.yellow
+                    : WCAGColors.neutral.gray200,
+                  backgroundColor: selectedColor === "black"
+                    ? WCAGColors.primary.yellowBg
+                    : WCAGColors.neutral.white,
+                  alignItems: "center",
+                }}
+              >
+                <PieceRenderer
+                  type="k"
+                  color="b"
+                  theme={currentPieceTheme.version}
+                  size={48}
+                />
+                <Text style={{
+                  fontSize: AccessibilitySizes.text.md,
+                  fontWeight: AccessibilitySizes.fontWeight.semibold,
+                  color: WCAGColors.neutral.gray900,
+                  marginTop: 8,
+                }}>
+                  Black
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Auto-Save Info */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                if (voiceModeEnabled) {
+                  speak("Auto-Save Enabled. Your game progress will be automatically saved. You can continue from where you left off anytime from the Load Game tab.");
+                }
+              }}
+              style={{
+                backgroundColor: WCAGColors.semantic.infoBg,
+                padding: 16,
+                borderRadius: AccessibilitySizes.radius.md,
+                borderLeftWidth: 4,
+                borderLeftColor: WCAGColors.semantic.info,
+                marginTop: 24,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                <Ionicons
+                  name="information-circle"
+                  size={24}
+                  color={WCAGColors.semantic.info}
+                  style={{ marginRight: 12, marginTop: 2 }}
+                />
+                <View style={{ flex: 1 }}>
                   <Text
-                    className={`text-base ${
-                      selectedLevel === item
-                        ? "text-indigo-600 font-medium"
-                        : "text-gray-700"
-                    }`}
+                    style={{
+                      fontSize: AccessibilitySizes.text.base,
+                      fontWeight: AccessibilitySizes.fontWeight.semibold,
+                      color: WCAGColors.semantic.info,
+                      marginBottom: 4,
+                    }}
                   >
-                    {item[0].toUpperCase() + item.slice(1)}
+                    Auto-Save Enabled
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: AccessibilitySizes.text.sm,
+                      color: WCAGColors.neutral.gray700,
+                      lineHeight: 20,
+                    }}
+                  >
+                    Your game progress will be automatically saved. You can continue from where you left off anytime from the Load Game tab.
                   </Text>
                 </View>
-              </TouchableOpacity>
-            ))}
+              </View>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </Modal>
+        )}
+
+        {/* Load Game Tab */}
+        {activeTab === "load" && (
+          <View>
+            {savedGames.length === 0 ? (
+              <View style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                paddingVertical: 60,
+              }}>
+                <Ionicons name="folder-open-outline" size={64} color={WCAGColors.neutral.gray400} />
+                <Text style={{
+                  fontSize: AccessibilitySizes.text.lg,
+                  fontWeight: AccessibilitySizes.fontWeight.semibold,
+                  color: WCAGColors.neutral.gray600,
+                  marginTop: 16,
+                }}>
+                  No Saved Games
+                </Text>
+                <Text style={{
+                  fontSize: AccessibilitySizes.text.md,
+                  color: WCAGColors.neutral.gray600,
+                  marginTop: 8,
+                  textAlign: "center",
+                }}>
+                  Your saved games will appear here
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                {savedGames.map((game, index) => (
+                  <View
+                    key={game.id || index}
+                    style={{
+                      backgroundColor: WCAGColors.neutral.white,
+                      borderRadius: AccessibilitySizes.radius.md,
+                      borderWidth: 2,
+                      borderColor: WCAGColors.neutral.gray200,
+                      padding: 16,
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => handleLoadGame(game)}
+                      style={{ flex: 1 }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                        <View style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          backgroundColor: WCAGColors.primary.yellowBg,
+                          justifyContent: "center",
+                          alignItems: "center",
+                          marginRight: 12,
+                        }}>
+                          <Ionicons name="game-controller-outline" size={24} color={WCAGColors.primary.yellow} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{
+                            fontSize: AccessibilitySizes.text.lg,
+                            fontWeight: AccessibilitySizes.fontWeight.bold,
+                            color: WCAGColors.neutral.gray900,
+                          }}>
+                            {game.name || `Game ${index + 1}`}
+                          </Text>
+                          <Text style={{
+                            fontSize: AccessibilitySizes.text.sm,
+                            color: WCAGColors.neutral.gray600,
+                          }}>
+                            {game.difficulty ? `${game.difficulty.charAt(0).toUpperCase() + game.difficulty.slice(1)} • ` : ""}{game.playerColor === "white" ? "Playing as White" : "Playing as Black"}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={24} color={WCAGColors.neutral.gray400} />
+                      </View>
+                      {game.lastPlayed && (
+                        <Text style={{
+                          fontSize: AccessibilitySizes.text.xs,
+                          color: WCAGColors.neutral.gray600,
+                        }}>
+                          Last played: {new Date(game.lastPlayed).toLocaleDateString()} at {new Date(game.lastPlayed).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => handleDeleteGame(game.id, game.name || `Game ${index + 1}`)}
+                      style={{
+                        marginTop: 12,
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        backgroundColor: WCAGColors.semantic.errorBg,
+                        borderRadius: AccessibilitySizes.radius.md,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderWidth: 1,
+                        borderColor: WCAGColors.semantic.error,
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={WCAGColors.semantic.error} />
+                      <Text style={{
+                        fontSize: AccessibilitySizes.text.sm,
+                        fontWeight: AccessibilitySizes.fontWeight.semibold,
+                        color: WCAGColors.semantic.error,
+                        marginLeft: 8,
+                      }}>
+                        Delete Game
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Start Button */}
+      {activeTab === "quick" && (
+        <View style={{
+          padding: 20,
+          paddingBottom: 24,
+          borderTopWidth: 1,
+          borderTopColor: WCAGColors.neutral.gray100,
+          backgroundColor: WCAGColors.neutral.white,
+        }}>
+          <TouchableOpacity
+            onPress={handleStart}
+            disabled={loading}
+            style={{
+              backgroundColor: WCAGColors.primary.yellow,
+              paddingVertical: 16,
+              borderRadius: AccessibilitySizes.radius.md,
+              shadowColor: WCAGColors.primary.yellow,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 4,
+            }}
+          >
+            <Text style={{
+              color: WCAGColors.neutral.white,
+              fontSize: AccessibilitySizes.text.lg,
+              fontWeight: AccessibilitySizes.fontWeight.bold,
+              textAlign: "center",
+            }}>
+              {loading ? "Creating game..." : "Start Game"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Delete Game Modal */}
+      <DeleteGameModal
+        visible={showDeleteModal}
+        gameName={gameToDelete?.name || "this game"}
+        voiceModeEnabled={voiceModeEnabled}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setGameToDelete(null);
+        }}
+        onConfirm={confirmDeleteGame}
+        onTextPress={(text) => voiceModeEnabled && speak(text)}
+      />
     </SafeAreaView>
   );
 }
