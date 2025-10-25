@@ -246,7 +246,8 @@ export default function ChessGameScreen() {
     try {
       // Load voice mode preference
       const voiceMode = await AsyncStorage.getItem(USER_STORAGE_KEYS.VOICE_MODE);
-      setVoiceModeEnabled(voiceMode === "true");
+      const isEnabled = voiceMode === "true" || voiceMode === true;
+      setVoiceModeEnabled(isEnabled);
 
       // Check if loading from scan
       if (fromScan === "true" && scannedFen) {
@@ -263,7 +264,7 @@ export default function ChessGameScreen() {
           [CHESS_STORAGE_KEYS.GAME_SESSION, "active"],
         ]);
 
-        if (voiceMode === "true") {
+        if (isEnabled) {
           setTimeout(() => {
             speak(`Chess game started. You are playing as ${color}.`);
           }, 1000);
@@ -284,7 +285,7 @@ export default function ChessGameScreen() {
           setPlayerColor(savedColor as "white" | "black");
         }
 
-        if (voiceMode === "true") {
+        if (isEnabled) {
           setTimeout(() => {
             speak(`Welcome back! Continuing your chess game.`);
           }, 1000);

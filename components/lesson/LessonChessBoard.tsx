@@ -1,9 +1,15 @@
-import React, { useRef } from "react";
-import { View, Text, TouchableOpacity, Dimensions, PanResponder } from "react-native";
-import * as Haptics from "expo-haptics";
-import { Chess } from "chess.js";
 import { PieceRenderer } from "@/components/chess/PieceRenderer";
 import { speak } from "@/utils/speechUtils";
+import { Chess } from "chess.js";
+import * as Haptics from "expo-haptics";
+import React, { useMemo, useRef } from "react";
+import {
+  Dimensions,
+  PanResponder,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const { width } = Dimensions.get("window");
 const boardSize = width - 64;
@@ -57,7 +63,12 @@ export const LessonChessBoard: React.FC<LessonChessBoardProps> = ({
     const relativeX = x - boardLayoutRef.current.x;
     const relativeY = y - boardLayoutRef.current.y;
 
-    if (relativeX < 0 || relativeX > boardSize || relativeY < 0 || relativeY > boardSize) {
+    if (
+      relativeX < 0 ||
+      relativeX > boardSize ||
+      relativeY < 0 ||
+      relativeY > boardSize
+    ) {
       return null;
     }
 
@@ -72,37 +83,55 @@ export const LessonChessBoard: React.FC<LessonChessBoardProps> = ({
     return `${file}${rank}`;
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => voiceModeEnabled,
-      onMoveShouldSetPanResponder: () => voiceModeEnabled,
-      onPanResponderGrant: (evt) => {
-        if (!voiceModeEnabled) return;
-
-        isLongPressMode.current = false;
-        const { pageX, pageY } = evt.nativeEvent;
-        const square = getSquareFromPosition(pageX, pageY);
-
-        if (square) {
-          lastAnnouncedSquare.current = square;
-
-          // Clear existing timer
-          if (longPressTimer.current) {
-            clearTimeout(longPressTimer.current);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => voiceModeEnabled,
+        onMoveShouldSetPanResponder: () => voiceModeEnabled,
+        onPanResponderGrant: (evt) => {
+          if (!voiceModeEnabled) return;
+          isLongPressMode.current = false;
+          const { pageX, pageY } = evt.nativeEvent;
+          const square = getSquareFromPosition(pageX, pageY);
+          if (square) {
+            lastAnnouncedSquare.current = square;
+            if (longPressTimer.current) clearTimeout(longPressTimer.current);
+            longPressTimer.current = setTimeout(() => {
+              isLongPressMode.current = true;
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              const board = game.board();
+              const row = 8 - parseInt(square[1]);
+              const col = square.charCodeAt(0) - 97;
+              const piece = board[row][col];
+              if (piece) {
+                const pieceColor = piece.color === "w" ? "White" : "Black";
+                const pieceNames: Record<string, string> = {
+                  p: "Pawn",
+                  n: "Knight",
+                  b: "Bishop",
+                  r: "Rook",
+                  q: "Queen",
+                  k: "King",
+                };
+                const pieceName = pieceNames[piece.type] || "Piece";
+                speak(`${pieceColor} ${pieceName} on ${square}`);
+              } else {
+                speak(`Empty square ${square}`);
+              }
+            }, 1000);
           }
-
-          // Set 2 second timer for long press
-          longPressTimer.current = setTimeout(() => {
-            isLongPressMode.current = true;
-
-            // Haptic feedback for long press (getaran kuat)
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
+        },
+        onPanResponderMove: (evt) => {
+          if (!voiceModeEnabled || !isLongPressMode.current) return;
+          const { pageX, pageY } = evt.nativeEvent;
+          const square = getSquareFromPosition(pageX, pageY);
+          if (square && square !== lastAnnouncedSquare.current) {
+            lastAnnouncedSquare.current = square;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             const board = game.board();
             const row = 8 - parseInt(square[1]);
             const col = square.charCodeAt(0) - 97;
             const piece = board[row][col];
-
             if (piece) {
               const pieceColor = piece.color === "w" ? "White" : "Black";
               const pieceNames: Record<string, string> = {
@@ -114,60 +143,23 @@ export const LessonChessBoard: React.FC<LessonChessBoardProps> = ({
                 k: "King",
               };
               const pieceName = pieceNames[piece.type] || "Piece";
-              speak(`${pieceColor} ${pieceName} on ${square}`);
+              speak(`${square}. ${pieceColor} ${pieceName}`);
             } else {
-              speak(`Empty square ${square}`);
+              speak(`${square}. Empty`);
             }
-          }, 2000);
-        }
-      },
-      onPanResponderMove: (evt) => {
-        if (!voiceModeEnabled || !isLongPressMode.current) return;
-
-        const { pageX, pageY } = evt.nativeEvent;
-        const square = getSquareFromPosition(pageX, pageY);
-
-        if (square && square !== lastAnnouncedSquare.current) {
-          lastAnnouncedSquare.current = square;
-
-          // Haptic feedback when sliding to new square
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-          const board = game.board();
-          const row = 8 - parseInt(square[1]);
-          const col = square.charCodeAt(0) - 97;
-          const piece = board[row][col];
-
-          if (piece) {
-            const pieceColor = piece.color === "w" ? "White" : "Black";
-            const pieceNames: Record<string, string> = {
-              p: "Pawn",
-              n: "Knight",
-              b: "Bishop",
-              r: "Rook",
-              q: "Queen",
-              k: "King",
-            };
-            const pieceName = pieceNames[piece.type] || "Piece";
-            speak(`${square}. ${pieceColor} ${pieceName}`);
-          } else {
-            speak(`${square}. Empty`);
           }
-        }
-      },
-      onPanResponderRelease: () => {
-        // Clear timer
-        if (longPressTimer.current) {
-          clearTimeout(longPressTimer.current);
-          longPressTimer.current = null;
-        }
-
-        isLongPressMode.current = false;
-        lastAnnouncedSquare.current = null;
-      },
-    })
-  ).current;
-
+        },
+        onPanResponderRelease: () => {
+          if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+          }
+          isLongPressMode.current = false;
+          lastAnnouncedSquare.current = null;
+        },
+      }),
+    [voiceModeEnabled, game]
+  );
   const renderPiece = (piece: any) => {
     if (!piece) return null;
 
@@ -213,7 +205,9 @@ export const LessonChessBoard: React.FC<LessonChessBoardProps> = ({
     };
 
     const accessibilityLabel = piece
-      ? `${piece.color === "w" ? "White" : "Black"} ${pieceNames[piece.type] || "Piece"} on ${square}`
+      ? `${piece.color === "w" ? "White" : "Black"} ${
+          pieceNames[piece.type] || "Piece"
+        } on ${square}`
       : `Empty square ${square}`;
 
     return (
@@ -229,10 +223,8 @@ export const LessonChessBoard: React.FC<LessonChessBoardProps> = ({
           opacity: isWaitingForBot || isProcessingMove ? 0.7 : 1,
         }}
         onPress={() => {
-          // Haptic feedback on tap (getaran sedang)
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-          // TTS on tap
           if (voiceModeEnabled) {
             if (piece) {
               const pieceColor = piece.color === "w" ? "White" : "Black";
@@ -249,7 +241,11 @@ export const LessonChessBoard: React.FC<LessonChessBoardProps> = ({
         accessible={true}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
-        accessibilityHint={piece ? "Tap to select or move piece" : "Tap to move selected piece here"}
+        accessibilityHint={
+          piece
+            ? "Tap to select or move piece"
+            : "Tap to move selected piece here"
+        }
         accessibilityState={{ disabled: isWaitingForBot || isProcessingMove }}
       >
         {renderPiece(piece)}
@@ -331,7 +327,10 @@ export const LessonChessBoard: React.FC<LessonChessBoardProps> = ({
     const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
     return (
-      <View style={{ justifyContent: "center", marginRight: 4 }} accessible={false}>
+      <View
+        style={{ justifyContent: "center", marginRight: 4 }}
+        accessible={false}
+      >
         {ranks.map((rank) => (
           <View
             key={rank}

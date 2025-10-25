@@ -148,9 +148,10 @@ export default function LessonGameScreen() {
 
     const loadVoiceMode = async () => {
       const voiceMode = await AsyncStorage.getItem(USER_STORAGE_KEYS.VOICE_MODE);
-      setVoiceModeEnabled(voiceMode === "true");
+      const isEnabled = voiceMode === "true" || voiceMode === true;
+      setVoiceModeEnabled(isEnabled);
 
-      if (voiceMode === "true" && objective) {
+      if (isEnabled && objective) {
         setTimeout(() => {
           speak(`Lesson: ${title}. Objective: ${objective}`);
         }, 1000);
