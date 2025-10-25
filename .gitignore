@@ -17,8 +17,10 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
-
-
+docs
+ACCESSIBILITY_GUIDE.md
+SPLASH_SCREEN_INFO.md
+CLAUDE.md
 # Metro
 .metro-health-check*
 
