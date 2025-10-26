@@ -39,15 +39,28 @@ export default function RootLayout() {
     const isPublicRoute =
       pathname === "/" || pathname === "/login" || pathname === "/onboarding";
 
-    if (!onboardingCompleted && !isOnboardingRoute) {
-      router.replace("/onboarding");
-    } else if (!isAuthenticated && !isPublicRoute) {
-      router.replace("/login");
-    } else if (isAuthenticated && isAuthRoute) {
-      router.replace("/home");
-    } else if (isAuthenticated && pathname === "/") {
-      router.replace("/home");
-    }
+    const recheckOnboardingAndNavigate = async () => {
+      const completed = await AsyncStorage.getItem(
+        USER_STORAGE_KEYS.ONBOARDING_COMPLETED
+      );
+      const isOnboardingActuallyCompleted = completed === "true";
+
+      if (isOnboardingActuallyCompleted !== onboardingCompleted) {
+        setOnboardingCompleted(isOnboardingActuallyCompleted);
+      }
+
+      if (!isOnboardingActuallyCompleted && !isOnboardingRoute) {
+        router.replace("/onboarding");
+      } else if (!isAuthenticated && !isPublicRoute) {
+        router.replace("/login");
+      } else if (isAuthenticated && isAuthRoute) {
+        router.replace("/home");
+      } else if (isAuthenticated && pathname === "/") {
+        router.replace("/home");
+      }
+    };
+
+    recheckOnboardingAndNavigate();
   }, [
     loading,
     checkingOnboarding,
