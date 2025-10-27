@@ -4,8 +4,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
 
 import "../global.css";
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const { loading, isAuthenticated } = useAuth();
@@ -13,6 +16,7 @@ export default function RootLayout() {
   const router = useRouter();
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
     const checkOnboarding = async () => {
@@ -30,6 +34,18 @@ export default function RootLayout() {
 
     checkOnboarding();
   }, []);
+
+  useEffect(() => {
+    const prepareApp = async () => {
+      if (!loading && !checkingOnboarding) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        setAppReady(true);
+        await SplashScreen.hideAsync();
+      }
+    };
+
+    prepareApp();
+  }, [loading, checkingOnboarding]);
 
   useEffect(() => {
     if (loading || checkingOnboarding) return;
@@ -70,7 +86,7 @@ export default function RootLayout() {
     router,
   ]);
 
-  if (loading || checkingOnboarding) {
+  if (loading || checkingOnboarding || !appReady) {
     return (
       <View
         style={{
@@ -91,6 +107,7 @@ export default function RootLayout() {
     pathname === "/" || pathname === "/login" || pathname === "/onboarding";
 
   if (
+    !appReady ||
     (!isAuthenticated && !isPublicRoute) ||
     (isAuthenticated && (isAuthRoute || pathname === "/")) ||
     (!onboardingCompleted && !isOnboardingRoute)
